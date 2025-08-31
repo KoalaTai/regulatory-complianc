@@ -133,20 +133,6 @@ export function CitationManager() {
     return matchesSearch && matchesCategory && matchesStandard
   })
 
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      standard: '',
-      section: '',
-      content: '',
-      tags: '',
-      url: '',
-      category: 'requirement'
-    })
-    setShowAddForm(false)
-    setEditingCitation(null)
-  }
-
   const handleSubmit = () => {
     if (!formData.title || !formData.standard || !formData.content) return
 
