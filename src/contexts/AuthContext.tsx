@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User } from 'firebase/auth'
 import { onAuthStateChange, createUserDocument, getUserDocument } from '@/lib/firebase'
 import { useKV } from '@github/spark/hooks'
+
+// User type that works with both Firebase and demo auth
+interface User {
+  uid: string
+  email: string | null
+  displayName: string | null
+  photoURL?: string | null
+}
 
 interface AuthContextType {
   user: User | null

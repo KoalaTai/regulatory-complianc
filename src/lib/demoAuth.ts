@@ -95,14 +95,26 @@ export const demoFirestore = {
       email: demoAuthState?.email || 'demo@virtualbackroom.ai',
       photoURL: demoAuthState?.photoURL,
       preferences: {
-        primaryStandards: [],
+        primaryStandards: ['FDA_QSR', 'ISO_13485'],
         notificationsEnabled: true,
-        theme: 'professional'
+        theme: 'professional',
+        dashboardLayout: 'detailed',
+        reminderFrequency: 'weekly'
       },
       stats: {
-        auditSimulationsCompleted: 0,
-        citationsManaged: 0,
-        aiConversations: 0
+        auditSimulationsCompleted: 5,
+        citationsManaged: 23,
+        aiConversations: 12,
+        standardsTracked: 8,
+        goalsCompleted: 3,
+        totalSectionsCompleted: 45
+      },
+      complianceProfile: {
+        industry: 'Medical Devices',
+        companySize: 'Medium (50-500 employees)',
+        primaryRegions: ['United States', 'European Union'],
+        certificationGoals: ['ISO 13485 Certification', 'FDA 510(k) Approval'],
+        riskTolerance: 'medium'
       }
     }
   },
@@ -113,7 +125,8 @@ export const demoFirestore = {
   }
 }
 
-// Check if we're in development/demo mode
+// Check if we're in development/demo mode (defaults to true)
 export const isDemoMode = () => {
-  return window.location.hostname === 'localhost' || window.location.hostname.includes('github.dev')
+  // Always use demo mode in Spark environment
+  return true
 }
