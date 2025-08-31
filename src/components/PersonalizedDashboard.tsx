@@ -473,7 +473,6 @@ export const PersonalizedDashboard = () => {
         </TabsContent>
 
         <TabsContent value="standards" className="space-y-6">
-        <TabsContent value="standards" className="space-y-6">
           {/* Tracked Standards */}
           <Card>
             <CardHeader>
