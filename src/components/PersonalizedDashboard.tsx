@@ -113,7 +113,8 @@ export const PersonalizedDashboard = () => {
           nextDeadline: '2024-03-15',
           notes: 'Focus on design controls section next',
           sections: standardsLibrary[0].sections.map((section, index) => ({
-            ...section,
+            id: section.id,
+            name: section.name,
             completed: index < 2, // First 2 sections completed
             lastReviewed: index < 2 ? '2024-01-15' : undefined
           }))
@@ -129,7 +130,11 @@ export const PersonalizedDashboard = () => {
           progress: 0,
           lastActivity: '1 week ago',
           notes: 'Planning phase',
-          sections: standardsLibrary[1].sections
+          sections: standardsLibrary[1].sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            completed: false
+          }))
         }
       ]
       setTrackedStandards(sampleStandards)
