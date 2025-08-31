@@ -8,8 +8,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, Plus, Search, Edit, Trash2, Copy, ExternalLink, Tag, Calendar, Sparkles, RefreshCw } from '@phosphor-icons/react'
+import { FileText, Plus, Search, Edit, Trash2, Copy, ExternalLink, Tag, Calendar, Sparkles, RefreshCw, SignIn } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
+import { useAuth } from '@/contexts/AuthContext'
+import { useUserStats } from '@/hooks/usePersonalization'
 
 interface Citation {
   id: string
@@ -25,7 +27,12 @@ interface Citation {
 }
 
 export function CitationManager() {
-  const [citations, setCitations] = useKV<Citation[]>('compliance-citations', [])
+  const { user } = useAuth()
+  const { incrementCitations } = useUserStats()
+  
+  // Use user-specific citation key when authenticated
+  const citationKey = user ? `compliance-citations-${user.uid}` : 'compliance-citations'
+  const [citations, setCitations] = useKV<Citation[]>(citationKey, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStandard, setSelectedStandard] = useState('all')
@@ -97,6 +104,8 @@ export function CitationManager() {
       setCitations((currentCitations) => currentCitations.map(c => c.id === citation.id ? citation : c))
     } else {
       setCitations((currentCitations) => [...currentCitations, citation])
+      // Update user stats for new citations
+      incrementCitations()
     }
 
     resetForm()
@@ -493,6 +502,17 @@ export function CitationManager() {
                       : 'Try adjusting your search or filter criteria'
                     }
                   </p>
+                  {!user && citations.length === 0 && (
+                    <div className="p-4 border border-primary/20 rounded-lg bg-primary/5 max-w-md mx-auto">
+                      <div className="flex items-center gap-2 text-primary mb-2">
+                        <SignIn className="h-4 w-4" />
+                        <span className="text-sm font-medium">Sign in to sync your citations</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Keep your citation library safe and accessible across all your devices.
+                      </p>
+                    </div>
+                  )}
                   {citations.length === 0 && (
                     <Button onClick={() => setShowAddForm(true)}>
                       <Plus className="mr-2 h-4 w-4" />

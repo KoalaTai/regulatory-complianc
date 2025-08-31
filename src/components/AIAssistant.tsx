@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Brain, Send, Mic, MicOff, User, Bot, Copy, ThumbsUp, ThumbsDown } from '@phosphor-icons/react'
+import { Brain, Send, Mic, MicOff, User, Bot, Copy, ThumbsUp, ThumbsDown, SignIn } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
+import { useAuth } from '@/contexts/AuthContext'
+import { useUserStats } from '@/hooks/usePersonalization'
 
 interface Message {
   id: string
@@ -18,7 +20,12 @@ interface Message {
 }
 
 export function AIAssistant() {
-  const [messages, setMessages] = useKV<Message[]>('ai-chat-history', [])
+  const { user } = useAuth()
+  const { incrementAIConversations } = useUserStats()
+  
+  // Use user-specific chat history key when authenticated
+  const chatKey = user ? `ai-chat-history-${user.uid}` : 'ai-chat-history'
+  const [messages, setMessages] = useKV<Message[]>(chatKey, [])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
@@ -106,6 +113,9 @@ export function AIAssistant() {
       }
 
       setMessages(prev => [...prev, assistantMessage])
+      
+      // Increment AI conversation stats for successful exchanges
+      incrementAIConversations()
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -168,6 +178,17 @@ export function AIAssistant() {
                     <p className="text-muted-foreground max-w-md mx-auto">
                       I'm here to help you navigate complex regulatory requirements. Ask me about FDA, ISO, EU MDR, or any compliance topic.
                     </p>
+                    {!user && (
+                      <div className="p-4 border border-primary/20 rounded-lg bg-primary/5 max-w-md mx-auto">
+                        <div className="flex items-center gap-2 text-primary mb-2">
+                          <SignIn className="h-4 w-4" />
+                          <span className="text-sm font-medium">Sign in for personalized experience</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Get persistent chat history, personalized recommendations, and sync across devices.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3">

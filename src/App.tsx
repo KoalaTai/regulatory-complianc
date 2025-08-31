@@ -5,21 +5,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { BookOpen, MessageCircle, Shield, Search, Brain, FileCheck, Users, Globe } from '@phosphor-icons/react'
+import { BookOpen, MessageCircle, Shield, Search, Brain, FileCheck, Users, Globe, SignIn } from '@phosphor-icons/react'
 import { StandardsBrowser } from '@/components/StandardsBrowser'
 import { AIAssistant } from '@/components/AIAssistant'
 import { AuditSimulator } from '@/components/AuditSimulator'
 import { CitationManager } from '@/components/CitationManager'
 import { HelpBubble } from '@/components/HelpBubble'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { AuthModal } from '@/components/AuthModal'
+import { UserProfile, WelcomeCard } from '@/components/UserProfile'
+import { UserSettingsModal } from '@/components/UserSettingsModal'
 
-function App() {
+const MainApp = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  
+  const { user, userProfile, loading } = useAuth()
 
   const stats = [
     { label: 'Regulatory Standards', value: '150+', icon: BookOpen, color: 'bg-primary' },
-    { label: 'AI Conversations', value: '2.3k', icon: MessageCircle, color: 'bg-secondary' },
-    { label: 'Audit Simulations', value: '45', icon: Shield, color: 'bg-accent' },
-    { label: 'Citations Managed', value: '890', icon: FileCheck, color: 'bg-destructive' },
+    { label: 'AI Conversations', value: userProfile?.stats.aiConversations.toString() || '0', icon: MessageCircle, color: 'bg-secondary' },
+    { label: 'Audit Simulations', value: userProfile?.stats.auditSimulationsCompleted.toString() || '0', icon: Shield, color: 'bg-accent' },
+    { label: 'Citations Managed', value: userProfile?.stats.citationsManaged.toString() || '0', icon: FileCheck, color: 'bg-destructive' },
   ]
 
   const quickActions = [
@@ -60,6 +68,17 @@ function App() {
     { type: 'citation', text: 'Added 5 citations to compliance document', time: '1 week ago' }
   ]
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading VirtualBackroom.ai...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -75,10 +94,20 @@ function App() {
                 <p className="text-sm text-muted-foreground">AI-Powered Regulatory Compliance Platform</p>
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              <Search className="mr-2 h-4 w-4" />
-              Search Standards
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm">
+                <Search className="mr-2 h-4 w-4" />
+                Search Standards
+              </Button>
+              {user ? (
+                <UserProfile onOpenSettings={() => setShowSettingsModal(true)} />
+              ) : (
+                <Button onClick={() => setShowAuthModal(true)} size="sm">
+                  <SignIn className="mr-2 h-4 w-4" />
+                  Sign In
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -96,6 +125,11 @@ function App() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
+            {/* Welcome Card for authenticated users */}
+            {user && userProfile && (
+              <WelcomeCard />
+            )}
+            
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {stats.map((stat, index) => (
@@ -208,7 +242,27 @@ function App() {
 
       {/* Context-aware help bubble */}
       <HelpBubble activeTab={activeTab} />
+
+      {/* Modals */}
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => setShowAuthModal(false)}
+      />
+      
+      <UserSettingsModal 
+        isOpen={showSettingsModal} 
+        onClose={() => setShowSettingsModal(false)}
+      />
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
   )
 }
 

@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Play, CheckCircle, AlertTriangle, Clock, FileText, Target, Users, Shield, Sparkles, RefreshCw } from '@phosphor-icons/react'
+import { Play, CheckCircle, AlertTriangle, Clock, FileText, Target, Users, Shield, Sparkles, RefreshCw, SignIn } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
+import { useAuth } from '@/contexts/AuthContext'
+import { useUserStats } from '@/hooks/usePersonalization'
 
 interface AuditStep {
   id: string
@@ -32,7 +34,12 @@ interface AuditSimulation {
 }
 
 export function AuditSimulator() {
-  const [simulations, setSimulations] = useKV<AuditSimulation[]>('audit-simulations', [])
+  const { user } = useAuth()
+  const { incrementAuditSimulations } = useUserStats()
+  
+  // Use user-specific simulation key when authenticated
+  const simulationKey = user ? `audit-simulations-${user.uid}` : 'audit-simulations'
+  const [simulations, setSimulations] = useKV<AuditSimulation[]>(simulationKey, [])
   const [activeSimulation, setActiveSimulation] = useState<string | null>(null)
   const [selectedStandard, setSelectedStandard] = useState('')
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
@@ -210,9 +217,14 @@ export function AuditSimulator() {
       
       const completedSteps = updatedSteps.filter(step => step.completed).length
       const progress = (completedSteps / updatedSteps.length) * 100
-      const status = progress === 100 ? 'completed' : progress > 0 ? 'in_progress' : 'not_started'
+      const newStatus = progress === 100 ? 'completed' : progress > 0 ? 'in_progress' : 'not_started'
       
-      return { ...sim, steps: updatedSteps, progress, status }
+      // Increment user stats when simulation is completed for the first time
+      if (sim.status !== 'completed' && newStatus === 'completed') {
+        incrementAuditSimulations()
+      }
+      
+      return { ...sim, steps: updatedSteps, progress, status: newStatus }
     }))
   }
 
@@ -291,6 +303,17 @@ export function AuditSimulator() {
                   <Target className="h-12 w-12 text-muted-foreground mx-auto" />
                   <p className="text-sm text-muted-foreground">No simulations yet</p>
                   <p className="text-xs text-muted-foreground">Select a standard and start your first simulation</p>
+                  {!user && (
+                    <div className="p-4 border border-primary/20 rounded-lg bg-primary/5 max-w-sm mx-auto mt-4">
+                      <div className="flex items-center gap-2 text-primary mb-2">
+                        <SignIn className="h-4 w-4" />
+                        <span className="text-sm font-medium">Sign in to save progress</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Keep your audit simulations and track progress across sessions.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
