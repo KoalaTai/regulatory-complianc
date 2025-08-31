@@ -143,17 +143,6 @@ export function CitationManager() {
     }
   }
 
-  const filteredCitations = citations.filter(citation => {
-    const matchesSearch = citation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         citation.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         citation.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    
-    const matchesCategory = selectedCategory === 'all' || citation.category === selectedCategory
-    const matchesStandard = selectedStandard === 'all' || citation.standard === selectedStandard
-    
-    return matchesSearch && matchesCategory && matchesStandard
-  })
-
   return (
     <div className="space-y-6">
       {/* Header */}
