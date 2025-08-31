@@ -91,9 +91,9 @@ export function CitationManager() {
     }
 
     if (editingCitation) {
-      setCitations(prev => prev.map(c => c.id === citation.id ? citation : c))
+      setCitations((currentCitations) => currentCitations.map(c => c.id === citation.id ? citation : c))
     } else {
-      setCitations(prev => [...prev, citation])
+      setCitations((currentCitations) => [...currentCitations, citation])
     }
 
     resetForm()
@@ -114,7 +114,7 @@ export function CitationManager() {
   }
 
   const deleteCitation = (id: string) => {
-    setCitations(prev => prev.filter(c => c.id !== id))
+    setCitations((currentCitations) => currentCitations.filter(c => c.id !== id))
   }
 
   const copyCitation = (citation: Citation) => {
