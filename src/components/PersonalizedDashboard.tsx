@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
 import { useKV } from '@github/spark/hooks'
 import { comprehensiveStandardsDatabase, getStandardById } from '@/data/standardsDatabase'
+import { ComplianceGoalsManager } from '@/components/ComplianceGoalsManager'
+import { RealTimeProgressDashboard } from '@/components/RealTimeProgressDashboard'
 import { 
   BookOpen, 
   CheckCircle, 
@@ -23,7 +25,9 @@ import {
   X,
   Settings,
   Filter,
-  Activity
+  Activity,
+  BarChart3,
+  Zap
 } from '@phosphor-icons/react'
 
 interface TrackedStandard {
@@ -357,9 +361,121 @@ export const PersonalizedDashboard = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content Area */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Dashboard Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="standards">Standards</TabsTrigger>
+          <TabsTrigger value="goals">Goals & Progress</TabsTrigger>
+          <TabsTrigger value="realtime" className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            Live Monitor
+          </TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick Actions */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                  <CardDescription>Get started with common compliance tasks</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAddStandard(true)}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                            <BookOpen className="h-5 w-5 text-foreground" />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-sm">Add Standard</h3>
+                              <Badge variant="secondary" className="text-xs">Quick</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Track a new regulatory standard</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAddGoal(true)}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                            <Target className="h-5 w-5 text-foreground" />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-sm">Create Goal</h3>
+                              <Badge variant="secondary" className="text-xs">Planning</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Set new compliance objective</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[280px]">
+                  <div className="space-y-4">
+                    {recentActivity.slice(0, 10).map((activity, index) => (
+                      <div key={activity.id}>
+                        <div className="flex items-start gap-3">
+                          <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${
+                            activity.type === 'standard-added' ? 'bg-primary' :
+                            activity.type === 'section-completed' ? 'bg-secondary' :
+                            activity.type === 'goal-created' ? 'bg-accent' :
+                            activity.type === 'audit-completed' ? 'bg-destructive' : 'bg-muted'
+                          }`}>
+                            {activity.type === 'standard-added' ? <BookOpen className="h-4 w-4" /> :
+                             activity.type === 'section-completed' ? <CheckCircle className="h-4 w-4" /> :
+                             activity.type === 'goal-created' ? <Target className="h-4 w-4" /> :
+                             activity.type === 'audit-completed' ? <CheckCircle className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <p className="text-sm font-medium">{activity.title}</p>
+                            <p className="text-xs text-muted-foreground">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(activity.timestamp).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        {index < recentActivity.slice(0, 10).length - 1 && <Separator className="my-4" />}
+                      </div>
+                    ))}
+
+                    {recentActivity.length === 0 && (
+                      <div className="text-center py-8">
+                        <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="standards" className="space-y-6">
+        <TabsContent value="standards" className="space-y-6">
           {/* Tracked Standards */}
           <Card>
             <CardHeader>
@@ -505,158 +621,240 @@ export const PersonalizedDashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Compliance Goals */}
+        <TabsContent value="goals">
+          <ComplianceGoalsManager />
+        </TabsContent>
+
+        <TabsContent value="realtime">
+          <RealTimeProgressDashboard />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Progress Analytics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Progress Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Standards Completion Rate</span>
+                      <span className="text-sm text-muted-foreground">{overallProgress}%</span>
+                    </div>
+                    <Progress value={overallProgress} className="h-2" />
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Goals Achievement</span>
+                      <span className="text-sm text-muted-foreground">
+                        {complianceGoals.filter(g => g.status === 'completed').length} of {complianceGoals.length}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={complianceGoals.length > 0 ? (complianceGoals.filter(g => g.status === 'completed').length / complianceGoals.length) * 100 : 0} 
+                      className="h-2" 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        {trackedStandards.filter(s => s.status === 'completed').length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Completed Standards</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-secondary">
+                        {trackedStandards.reduce((acc, std) => acc + std.sections.filter(s => s.completed).length, 0)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Sections Completed</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Time Analytics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Time Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-accent">
+                        {Math.round(recentActivity.length / 7)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Activities/Week</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-destructive">
+                        {complianceGoals.filter(g => new Date(g.targetDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Due This Week</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="font-medium mb-3">Recent Performance</h4>
+                    <div className="space-y-2">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
+                        <div key={day} className="flex items-center justify-between">
+                          <span className="text-sm">{day}</span>
+                          <div className="flex items-center gap-2">
+                            <Progress value={Math.random() * 100} className="w-16 h-1" />
+                            <span className="text-xs text-muted-foreground w-8">
+                              {Math.floor(Math.random() * 4) + 1}h
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Upcoming Deadlines */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Compliance Goals</CardTitle>
-                  <CardDescription>Track your regulatory compliance objectives</CardDescription>
-                </div>
-                <Button size="sm" onClick={() => setShowAddGoal(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Goal
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Upcoming Deadlines & Alerts
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {showAddGoal && (
-                <Card className="mb-4 border-dashed">
-                  <CardContent className="p-4">
-                    <h4 className="font-medium mb-3">Create New Goal</h4>
-                    <div className="space-y-3">
-                      <Input
-                        placeholder="Goal title"
-                        value={newGoalTitle}
-                        onChange={(e) => setNewGoalTitle(e.target.value)}
-                      />
-                      <Input
-                        placeholder="Description (optional)"
-                        value={newGoalDescription}
-                        onChange={(e) => setNewGoalDescription(e.target.value)}
-                      />
-                      <Input
-                        type="date"
-                        placeholder="Target date"
-                        value={newGoalDate}
-                        onChange={(e) => setNewGoalDate(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={createNewGoal} disabled={!newGoalTitle.trim()}>
-                          Create Goal
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setShowAddGoal(false)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="space-y-4">
-                {complianceGoals.map(goal => (
-                  <Card key={goal.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium">{goal.title}</h4>
-                          <p className="text-sm text-muted-foreground">{goal.description}</p>
+              <div className="space-y-3">
+                {complianceGoals
+                  .filter(goal => {
+                    const daysUntil = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                    return daysUntil <= 30 && daysUntil >= 0
+                  })
+                  .sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime())
+                  .map(goal => {
+                    const daysUntil = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                    return (
+                      <div key={goal.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            daysUntil <= 7 ? 'bg-destructive' : 
+                            daysUntil <= 14 ? 'bg-yellow-500' : 'bg-accent'
+                          }`} />
+                          <div>
+                            <div className="font-medium">{goal.title}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Due in {daysUntil} days • {goal.progress}% complete
+                            </div>
+                          </div>
                         </div>
-                        <Badge className={getPriorityColor(goal.priority)} variant="secondary">
-                          {goal.priority}
+                        <Badge variant={daysUntil <= 7 ? 'destructive' : 'secondary'}>
+                          {daysUntil <= 7 ? 'Urgent' : 'Upcoming'}
                         </Badge>
                       </div>
-                      
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">Progress</span>
-                        <span className="text-sm font-medium">{goal.progress}%</span>
-                      </div>
-                      <Progress value={goal.progress} className="h-2 mb-3" />
-                      
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Due: {goal.targetDate}</span>
-                        </div>
-                        <Badge 
-                          variant={goal.status === 'completed' ? 'default' : goal.status === 'overdue' ? 'destructive' : 'secondary'}
-                        >
-                          {goal.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {complianceGoals.length === 0 && (
+                    )
+                  })}
+                
+                {complianceGoals.filter(goal => {
+                  const daysUntil = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                  return daysUntil <= 30 && daysUntil >= 0
+                }).length === 0 && (
                   <div className="text-center py-8">
-                    <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No goals set yet</h3>
-                    <p className="text-muted-foreground mb-4">Create goals to track your compliance objectives</p>
-                    <Button onClick={() => setShowAddGoal(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Goal
-                    </Button>
+                    <CheckCircle className="h-8 w-8 text-secondary mx-auto mb-2" />
+                    <p className="text-muted-foreground">No upcoming deadlines in the next 30 days</p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
+      </Tabs>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {recentActivity.slice(0, 20).map((activity, index) => (
-                    <div key={activity.id}>
-                      <div className="flex items-start gap-3">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${
-                          activity.type === 'standard-added' ? 'bg-primary' :
-                          activity.type === 'section-completed' ? 'bg-secondary' :
-                          activity.type === 'goal-created' ? 'bg-accent' :
-                          activity.type === 'audit-completed' ? 'bg-destructive' : 'bg-muted'
-                        }`}>
-                          {activity.type === 'standard-added' ? <BookOpen className="h-4 w-4" /> :
-                           activity.type === 'section-completed' ? <CheckCircle className="h-4 w-4" /> :
-                           activity.type === 'goal-created' ? <Target className="h-4 w-4" /> :
-                           activity.type === 'audit-completed' ? <Shield className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium">{activity.title}</p>
-                          <p className="text-xs text-muted-foreground">{activity.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(activity.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      {index < recentActivity.length - 1 && <Separator className="my-4" />}
-                    </div>
-                  ))}
-
-                  {recentActivity.length === 0 && (
-                    <div className="text-center py-8">
-                      <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">No recent activity</p>
-                    </div>
-                  )}
+      {/* Add Standard Modal */}
+      {showAddStandard && (
+        <Card className="mb-4 border-dashed">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium">Add Standard to Track</h4>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddStandard(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {standardsLibrary
+                .filter(std => !trackedStandards.find(ts => ts.id === std.id))
+                .slice(0, 6)
+                .map(standard => (
+                <div 
+                  key={standard.id}
+                  className="p-3 border rounded-md cursor-pointer hover:bg-muted transition-colors"
+                  onClick={() => addStandardToTracking(standard.id)}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h5 className="font-medium text-sm">{standard.name}</h5>
+                    <Badge variant="outline" className="text-xs">{standard.region}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{standard.description}</p>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add Goal Modal */}
+      {showAddGoal && (
+        <Card className="mb-4 border-dashed">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium">Create New Goal</h4>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddGoal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <Input
+                placeholder="Goal title"
+                value={newGoalTitle}
+                onChange={(e) => setNewGoalTitle(e.target.value)}
+              />
+              <Input
+                placeholder="Description (optional)"
+                value={newGoalDescription}
+                onChange={(e) => setNewGoalDescription(e.target.value)}
+              />
+              <Input
+                type="date"
+                placeholder="Target date"
+                value={newGoalDate}
+                onChange={(e) => setNewGoalDate(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={createNewGoal} disabled={!newGoalTitle.trim()}>
+                  Create Goal
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowAddGoal(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
