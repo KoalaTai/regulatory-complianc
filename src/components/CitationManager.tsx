@@ -6,587 +6,473 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FileText, Plus, Search, Download, Upload, Copy, ExternalLink, CheckCircle, AlertCircle, Clock } from '@phosphor-icons/react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FileText, Plus, Search, Edit, Trash2, Copy, ExternalLink, Tag, Calendar } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
-import { toast } from 'sonner'
 
 interface Citation {
   id: string
   title: string
   standard: string
   section: string
-  type: 'regulation' | 'standard' | 'guidance' | 'article'
-  date: string
-  url?: string
-  notes?: string
+  content: string
   tags: string[]
-  validated: boolean
-  lastChecked: Date
-  createdAt: Date
-}
-
-interface CitationSuggestion {
-  text: string
-  suggestedCitations: Array<{
-    standard: string
-    section: string
-    relevance: number
-    context: string
-  }>
+  url?: string
+  dateAdded: Date
+  lastModified: Date
+  category: 'requirement' | 'guidance' | 'definition' | 'procedure'
 }
 
 export function CitationManager() {
-  const [citations, setCitations] = useKV<Citation[]>('regulatory-citations', [])
+  const [citations, setCitations] = useKV<Citation[]>('compliance-citations', [])
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedType, setSelectedType] = useState<string>('all')
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [documentText, setDocumentText] = useState('')
-  const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedStandard, setSelectedStandard] = useState('all')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingCitation, setEditingCitation] = useState<Citation | null>(null)
 
-  // Form states for adding citations
-  const [newCitation, setNewCitation] = useState({
+  // Form state for adding/editing citations
+  const [formData, setFormData] = useState({
     title: '',
     standard: '',
     section: '',
-    type: 'regulation' as const,
-    date: '',
+    content: '',
+    tags: '',
     url: '',
-    notes: '',
-    tags: ''
+    category: 'requirement' as Citation['category']
   })
 
-  const citationTypes = [
-    { value: 'all', label: 'All Types' },
-    { value: 'regulation', label: 'Regulations' },
-    { value: 'standard', label: 'Standards' },
-    { value: 'guidance', label: 'Guidance Documents' },
-    { value: 'article', label: 'Articles' }
+  const standards = [
+    'FDA 21 CFR Part 820',
+    'ISO 13485:2016',
+    'EU MDR 2017/745',
+    'ISO 14971:2019',
+    'ICH Q10',
+    'ISO 9001:2015'
   ]
 
-  const sampleCitations: Citation[] = [
-    {
-      id: '1',
-      title: '21 CFR Part 820 - Quality System Regulation',
-      standard: 'FDA QSR',
-      section: '820.30',
-      type: 'regulation',
-      date: '2022-01-01',
-      url: 'https://www.fda.gov/21cfr820',
-      notes: 'Design control requirements for medical devices',
-      tags: ['FDA', 'design-controls', 'medical-devices'],
-      validated: true,
-      lastChecked: new Date('2023-11-01'),
-      createdAt: new Date('2023-08-15')
-    },
-    {
-      id: '2',
-      title: 'ISO 13485:2016 - Medical devices QMS',
-      standard: 'ISO 13485',
-      section: '7.3',
-      type: 'standard',
-      date: '2016-03-01',
-      url: 'https://www.iso.org/standard/59752.html',
-      notes: 'Design and development requirements',
-      tags: ['ISO', 'QMS', 'design-development'],
-      validated: true,
-      lastChecked: new Date('2023-10-15'),
-      createdAt: new Date('2023-09-01')
-    },
-    {
-      id: '3',
-      title: 'EU MDR 2017/745 - Medical Device Regulation',
-      standard: 'EU MDR',
-      section: 'Article 61',
-      type: 'regulation',
-      date: '2021-05-26',
-      url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32017R0745',
-      notes: 'Clinical evaluation requirements',
-      tags: ['EU', 'clinical-evaluation', 'MDR'],
-      validated: false,
-      lastChecked: new Date('2023-09-20'),
-      createdAt: new Date('2023-10-01')
-    }
+  const categories = [
+    { id: 'all', name: 'All Citations', count: citations.length },
+    { id: 'requirement', name: 'Requirements', count: citations.filter(c => c.category === 'requirement').length },
+    { id: 'guidance', name: 'Guidance', count: citations.filter(c => c.category === 'guidance').length },
+    { id: 'definition', name: 'Definitions', count: citations.filter(c => c.category === 'definition').length },
+    { id: 'procedure', name: 'Procedures', count: citations.filter(c => c.category === 'procedure').length }
   ]
 
-  // Initialize with sample data if empty
-  React.useEffect(() => {
-    if (citations.length === 0) {
-      setCitations(sampleCitations)
-    }
-  }, [citations.length, setCitations])
-
-  const filteredCitations = citations.filter(citation => {
-    const matchesSearch = searchQuery === '' || 
-      citation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      citation.standard.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      citation.section.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      citation.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    
-    const matchesType = selectedType === 'all' || citation.type === selectedType
-    
-    return matchesSearch && matchesType
-  })
-
-  const addCitation = () => {
-    if (!newCitation.title || !newCitation.standard || !newCitation.section) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
-    const citation: Citation = {
-      id: Date.now().toString(),
-      title: newCitation.title,
-      standard: newCitation.standard,
-      section: newCitation.section,
-      type: newCitation.type,
-      date: newCitation.date,
-      url: newCitation.url,
-      notes: newCitation.notes,
-      tags: newCitation.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-      validated: false,
-      lastChecked: new Date(),
-      createdAt: new Date()
-    }
-
-    setCitations(current => [...current, citation])
-    setNewCitation({
+  const resetForm = () => {
+    setFormData({
       title: '',
       standard: '',
       section: '',
-      type: 'regulation',
-      date: '',
+      content: '',
+      tags: '',
       url: '',
-      notes: '',
-      tags: ''
+      category: 'requirement'
     })
-    setIsAddDialogOpen(false)
-    toast.success('Citation added successfully')
+    setShowAddForm(false)
+    setEditingCitation(null)
   }
 
-  const analyzeCitations = async () => {
-    if (!documentText.trim()) {
-      toast.error('Please enter document text to analyze')
-      return
+  const handleSubmit = () => {
+    if (!formData.title || !formData.standard || !formData.content) return
+
+    const citation: Citation = {
+      id: editingCitation?.id || Date.now().toString(),
+      title: formData.title,
+      standard: formData.standard,
+      section: formData.section,
+      content: formData.content,
+      tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      url: formData.url || undefined,
+      category: formData.category,
+      dateAdded: editingCitation?.dateAdded || new Date(),
+      lastModified: new Date()
     }
 
-    setIsAnalyzing(true)
+    if (editingCitation) {
+      setCitations(prev => prev.map(c => c.id === citation.id ? citation : c))
+    } else {
+      setCitations(prev => [...prev, citation])
+    }
+
+    resetForm()
+  }
+
+  const startEdit = (citation: Citation) => {
+    setFormData({
+      title: citation.title,
+      standard: citation.standard,
+      section: citation.section,
+      content: citation.content,
+      tags: citation.tags.join(', '),
+      url: citation.url || '',
+      category: citation.category
+    })
+    setEditingCitation(citation)
+    setShowAddForm(true)
+  }
+
+  const deleteCitation = (id: string) => {
+    setCitations(prev => prev.filter(c => c.id !== id))
+  }
+
+  const copyCitation = (citation: Citation) => {
+    const formatted = `${citation.title} (${citation.standard} ${citation.section})\n${citation.content}`
+    navigator.clipboard.writeText(formatted)
+  }
+
+  const filteredCitations = citations.filter(citation => {
+    const matchesSearch = citation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         citation.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         citation.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
     
-    try {
-      // Simulate AI analysis
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const suggestions: CitationSuggestion = {
-        text: documentText,
-        suggestedCitations: [
-          {
-            standard: 'FDA 21 CFR Part 820',
-            section: '820.30(f)',
-            relevance: 95,
-            context: 'Design verification requirements mentioned in your text'
-          },
-          {
-            standard: 'ISO 13485:2016',
-            section: '7.3.5',
-            relevance: 87,
-            context: 'Design verification processes align with this standard'
-          },
-          {
-            standard: 'ISO 14971:2019',
-            section: '7.4',
-            relevance: 78,
-            context: 'Risk control verification mentioned'
-          }
-        ]
-      }
-
-      setCitationSuggestions(suggestions)
-      toast.success('Analysis complete - citations suggested')
-    } catch (error) {
-      toast.error('Failed to analyze document')
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
-  const validateCitation = async (citationId: string) => {
-    setCitations(current =>
-      current.map(citation =>
-        citation.id === citationId
-          ? { ...citation, validated: true, lastChecked: new Date() }
-          : citation
-      )
-    )
-    toast.success('Citation validated')
-  }
-
-  const copyCitation = async (citation: Citation) => {
-    const citationText = `${citation.title}, ${citation.standard} ${citation.section} (${citation.date})`
+    const matchesCategory = selectedCategory === 'all' || citation.category === selectedCategory
+    const matchesStandard = selectedStandard === 'all' || citation.standard === selectedStandard
     
-    try {
-      await navigator.clipboard.writeText(citationText)
-      toast.success('Citation copied to clipboard')
-    } catch (error) {
-      toast.error('Failed to copy citation')
-    }
-  }
+    return matchesSearch && matchesCategory && matchesStandard
+  })
 
-  const exportCitations = () => {
-    const csvContent = [
-      'Title,Standard,Section,Type,Date,URL,Notes,Tags',
-      ...filteredCitations.map(citation => 
-        `"${citation.title}","${citation.standard}","${citation.section}","${citation.type}","${citation.date}","${citation.url || ''}","${citation.notes || ''}","${citation.tags.join('; ')}"`
-      )
-    ].join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'regulatory-citations.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
-    toast.success('Citations exported')
-  }
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'regulation': return '📋'
-      case 'standard': return '📊'
-      case 'guidance': return '📖'
-      case 'article': return '📄'
-      default: return '📋'
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'requirement': return 'bg-primary'
+      case 'guidance': return 'bg-secondary'
+      case 'definition': return 'bg-accent'
+      case 'procedure': return 'bg-destructive'
+      default: return 'bg-muted'
     }
-  }
-
-  const getValidationStatus = (citation: Citation) => {
-    if (citation.validated) {
-      return { icon: CheckCircle, color: 'text-green-600', text: 'Validated' }
-    }
-    
-    const daysSinceCheck = Math.floor((new Date().getTime() - citation.lastChecked.getTime()) / (1000 * 60 * 60 * 24))
-    if (daysSinceCheck > 90) {
-      return { icon: AlertCircle, color: 'text-red-600', text: 'Needs Review' }
-    }
-    
-    return { icon: Clock, color: 'text-yellow-600', text: 'Pending' }
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Citation & Reference Manager</h2>
-          <p className="text-muted-foreground">Manage regulatory citations and validate references</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCitations}>
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Citation
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Citation</DialogTitle>
-                <DialogDescription>Create a new regulatory reference</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="title">Title *</Label>
-                  <Input
-                    id="title"
-                    value={newCitation.title}
-                    onChange={(e) => setNewCitation(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Regulation or standard title"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="standard">Standard *</Label>
-                    <Input
-                      id="standard"
-                      value={newCitation.standard}
-                      onChange={(e) => setNewCitation(prev => ({ ...prev, standard: e.target.value }))}
-                      placeholder="e.g., FDA QSR"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="section">Section *</Label>
-                    <Input
-                      id="section"
-                      value={newCitation.section}
-                      onChange={(e) => setNewCitation(prev => ({ ...prev, section: e.target.value }))}
-                      placeholder="e.g., 820.30"
-                    />
-                  </div>
-                </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Citation Manager</CardTitle>
+              <CardDescription>Organize and manage regulatory citations and references</CardDescription>
+            </div>
+            <Button onClick={() => setShowAddForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Citation
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="type">Type</Label>
-                    <Select value={newCitation.type} onValueChange={(value: any) => setNewCitation(prev => ({ ...prev, type: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="regulation">Regulation</SelectItem>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="guidance">Guidance</SelectItem>
-                        <SelectItem value="article">Article</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={newCitation.date}
-                      onChange={(e) => setNewCitation(prev => ({ ...prev, date: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="url">URL</Label>
-                  <Input
-                    id="url"
-                    value={newCitation.url}
-                    onChange={(e) => setNewCitation(prev => ({ ...prev, url: e.target.value }))}
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="tags">Tags</Label>
-                  <Input
-                    id="tags"
-                    value={newCitation.tags}
-                    onChange={(e) => setNewCitation(prev => ({ ...prev, tags: e.target.value }))}
-                    placeholder="FDA, design-controls, medical-devices"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={newCitation.notes}
-                    onChange={(e) => setNewCitation(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Additional notes or context"
-                    rows={3}
-                  />
-                </div>
-
-                <Button onClick={addCitation} className="w-full">
-                  Add Citation
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Citation Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Filters Sidebar */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Citation Analysis
-            </CardTitle>
-            <CardDescription>Analyze text for citation suggestions</CardDescription>
+            <CardTitle className="text-lg">Filters</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea
-              placeholder="Paste your document text here for AI-powered citation analysis..."
-              value={documentText}
-              onChange={(e) => setDocumentText(e.target.value)}
-              rows={8}
-              className="resize-none"
-            />
-            
-            <Button 
-              onClick={analyzeCitations} 
-              disabled={isAnalyzing || !documentText.trim()}
-              className="w-full"
-            >
-              {isAnalyzing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4 mr-2" />
-                  Analyze Citations
-                </>
-              )}
-            </Button>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search citations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-            {citationSuggestions && (
-              <div className="mt-4 space-y-3">
-                <h4 className="font-semibold text-sm">Suggested Citations</h4>
-                {citationSuggestions.suggestedCitations.map((suggestion, index) => (
-                  <div key={index} className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-sm">
-                        {suggestion.standard} {suggestion.section}
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {suggestion.relevance}% match
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{suggestion.context}</p>
-                  </div>
+            {/* Standard Filter */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Standard</label>
+              <Select value={selectedStandard} onValueChange={setSelectedStandard}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Standards</SelectItem>
+                  {standards.map(standard => (
+                    <SelectItem key={standard} value={standard}>
+                      {standard}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Categories */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Category</label>
+              <div className="space-y-2">
+                {categories.map(category => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? "default" : "ghost"}
+                    size="sm"
+                    className="w-full justify-between"
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    <span>{category.name}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {category.count}
+                    </Badge>
+                  </Button>
                 ))}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Citations List */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Search and Filter */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search citations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+        <div className="lg:col-span-3">
+          {showAddForm && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>{editingCitation ? 'Edit Citation' : 'Add New Citation'}</CardTitle>
+                <CardDescription>
+                  {editingCitation ? 'Update citation details' : 'Add a new regulatory citation to your library'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Title</label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Citation title"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Standard</label>
+                    <Select value={formData.standard} onValueChange={(value) => setFormData(prev => ({ ...prev, standard: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select standard" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {standards.map(standard => (
+                          <SelectItem key={standard} value={standard}>
+                            {standard}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Section</label>
+                    <Input
+                      value={formData.section}
+                      onChange={(e) => setFormData(prev => ({ ...prev, section: e.target.value }))}
+                      placeholder="e.g., 820.30, 4.1.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Category</label>
+                    <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as Citation['category'] }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="requirement">Requirement</SelectItem>
+                        <SelectItem value="guidance">Guidance</SelectItem>
+                        <SelectItem value="definition">Definition</SelectItem>
+                        <SelectItem value="procedure">Procedure</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Content</label>
+                  <Textarea
+                    value={formData.content}
+                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Citation content or requirement text"
+                    className="min-h-24"
                   />
                 </div>
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {citationTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tags</label>
+                    <Input
+                      value={formData.tags}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                      placeholder="design controls, validation, testing (comma separated)"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Reference URL</label>
+                    <Input
+                      value={formData.url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSubmit}>
+                    {editingCitation ? 'Update Citation' : 'Add Citation'}
+                  </Button>
+                  <Button variant="outline" onClick={resetForm}>
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Citations Library</CardTitle>
+                  <CardDescription>
+                    {filteredCitations.length} of {citations.length} citations
+                  </CardDescription>
+                </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              {filteredCitations.length === 0 ? (
+                <div className="text-center py-12 space-y-4">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <h3 className="text-lg font-medium">No citations found</h3>
+                  <p className="text-muted-foreground">
+                    {citations.length === 0 
+                      ? 'Start building your citation library by adding your first citation'
+                      : 'Try adjusting your search or filter criteria'
+                    }
+                  </p>
+                  {citations.length === 0 && (
+                    <Button onClick={() => setShowAddForm(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Citation
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-4">
+                    {filteredCitations.map((citation, index) => (
+                      <Card key={citation.id} className="border-l-4" style={{ borderLeftColor: `var(--color-${getCategoryColor(citation.category).split('-')[1]})` }}>
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            {/* Header */}
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1 flex-1">
+                                <h4 className="font-medium">{citation.title}</h4>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="text-xs">
+                                    {citation.standard}
+                                  </Badge>
+                                  {citation.section && (
+                                    <Badge variant="outline" className="text-xs">
+                                      §{citation.section}
+                                    </Badge>
+                                  )}
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs text-white ${getCategoryColor(citation.category)}`}
+                                  >
+                                    {citation.category}
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => copyCitation(citation)}>
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => startEdit(citation)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => deleteCitation(citation.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                {citation.url && (
+                                  <Button variant="ghost" size="sm" asChild>
+                                    <a href={citation.url} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="bg-muted/50 rounded-lg p-3">
+                              <p className="text-sm">{citation.content}</p>
+                            </div>
+
+                            {/* Tags and Metadata */}
+                            <div className="space-y-2">
+                              {citation.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {citation.tags.map((tag, tagIndex) => (
+                                    <Badge key={tagIndex} variant="outline" className="text-xs">
+                                      <Tag className="h-3 w-3 mr-1" />
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Added {citation.dateAdded.toLocaleDateString()}
+                                </span>
+                                {citation.lastModified.getTime() !== citation.dateAdded.getTime() && (
+                                  <span>Modified {citation.lastModified.toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
-
-          {/* Citations Grid */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Your Citations ({filteredCitations.length})</h3>
-            </div>
-
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-3">
-                {filteredCitations.map(citation => {
-                  const status = getValidationStatus(citation)
-                  
-                  return (
-                    <Card key={citation.id} className="hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-lg">{getTypeIcon(citation.type)}</span>
-                                <h4 className="font-medium text-sm">{citation.title}</h4>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {citation.standard} {citation.section}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-1 ml-4">
-                              <div className={`flex items-center gap-1 ${status.color}`}>
-                                <status.icon className="h-4 w-4" />
-                                <span className="text-xs">{status.text}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {citation.notes && (
-                            <p className="text-sm text-muted-foreground">{citation.notes}</p>
-                          )}
-
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-xs">
-                              {citation.type}
-                            </Badge>
-                            {citation.date && (
-                              <Badge variant="outline" className="text-xs">
-                                {new Date(citation.date).getFullYear()}
-                              </Badge>
-                            )}
-                            {citation.tags.map(tag => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="text-xs text-muted-foreground">
-                              Added {citation.createdAt.toLocaleDateString()}
-                            </div>
-                            
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => copyCitation(citation)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                              {citation.url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(citation.url, '_blank')}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                </Button>
-                              )}
-                              {!citation.validated && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => validateCitation(citation.id)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <CheckCircle className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </ScrollArea>
-          </div>
         </div>
       </div>
     </div>
   )
+
+  function getCategoryColor(category: string) {
+    switch (category) {
+      case 'requirement': return 'bg-primary'
+      case 'guidance': return 'bg-secondary'
+      case 'definition': return 'bg-accent'
+      case 'procedure': return 'bg-destructive'
+      default: return 'bg-muted'
+    }
+  }
+
+  function copyCitation(citation: Citation) {
+    const formatted = `${citation.title} (${citation.standard} ${citation.section})\n${citation.content}`
+    navigator.clipboard.writeText(formatted)
+  }
+
+  function startEdit(citation: Citation) {
+    setFormData({
+      title: citation.title,
+      standard: citation.standard,
+      section: citation.section,
+      content: citation.content,
+      tags: citation.tags.join(', '),
+      url: citation.url || '',
+      category: citation.category
+    })
+    setEditingCitation(citation)
+    setShowAddForm(true)
+  }
+
+  function deleteCitation(id: string) {
+    setCitations(prev => prev.filter(c => c.id !== id))
+  }
 }

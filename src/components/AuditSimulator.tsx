@@ -3,518 +3,418 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Shield, Play, CheckCircle, AlertTriangle, Clock, FileText, Target, TrendUp } from '@phosphor-icons/react'
+import { Separator } from '@/components/ui/separator'
+import { Play, CheckCircle, AlertTriangle, Clock, FileText, Target, Users, Shield } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
-import { toast } from 'sonner'
 
-interface AuditScenario {
+interface AuditStep {
   id: string
   title: string
   description: string
-  category: string
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced'
-  estimatedTime: number
-  questions: Array<{
-    id: string
-    question: string
-    type: 'multiple-choice' | 'open-ended'
-    options?: string[]
-    correctAnswer?: string
-    context?: string
-    guidance?: string
-  }>
+  completed: boolean
+  required: boolean
+  requirements: string[]
 }
 
-interface AuditSession {
+interface AuditSimulation {
   id: string
-  scenarioId: string
-  startTime: Date
-  answers: Record<string, string>
-  score?: number
-  feedback?: string
-  completed: boolean
+  standard: string
+  progress: number
+  status: 'not_started' | 'in_progress' | 'completed'
+  steps: AuditStep[]
+  createdAt: Date
 }
 
 export function AuditSimulator() {
-  const [auditSessions, setAuditSessions] = useKV<AuditSession[]>('audit-sessions', [])
-  const [selectedScenario, setSelectedScenario] = useState<AuditScenario | null>(null)
-  const [currentSession, setCurrentSession] = useState<AuditSession | null>(null)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState('')
-  const [openAnswer, setOpenAnswer] = useState('')
+  const [simulations, setSimulations] = useKV<AuditSimulation[]>('audit-simulations', [])
+  const [activeSimulation, setActiveSimulation] = useState<string | null>(null)
+  const [selectedStandard, setSelectedStandard] = useState('')
 
-  // Mock audit scenarios
-  const auditScenarios: AuditScenario[] = [
-    {
-      id: 'fda-design-controls',
-      title: 'FDA Design Controls Audit',
-      description: 'Simulate a typical FDA inspection focused on 21 CFR Part 820.30 design controls',
-      category: 'FDA QSR',
-      difficulty: 'Intermediate',
-      estimatedTime: 25,
-      questions: [
-        {
-          id: 'dc1',
-          question: 'An FDA inspector asks to see your design history file for a Class II device. What key documents should be immediately available?',
-          type: 'multiple-choice',
-          options: [
-            'Only the final design outputs and verification reports',
-            'Design plan, inputs, outputs, reviews, verification, validation, and transfer documents',
-            'Just the design validation protocol and report',
-            'Manufacturing procedures and quality manual'
-          ],
-          correctAnswer: 'Design plan, inputs, outputs, reviews, verification, validation, and transfer documents',
-          context: 'The design history file (DHF) is a compilation of records that describes the design history of a finished device.',
-          guidance: 'Per 21 CFR 820.30(j), the DHF must contain or reference records necessary to demonstrate that the design was developed in accordance with the approved design plan and requirements of the QSR.'
-        },
-        {
-          id: 'dc2',
-          question: 'How would you demonstrate that your design inputs are appropriate and address the intended use?',
-          type: 'open-ended',
-          context: 'The inspector is evaluating whether your design inputs meet the requirements of 21 CFR 820.30(c).',
-          guidance: 'Design inputs should include functional, performance, safety, and regulatory requirements. They should be documented, reviewed, and approved by qualified personnel.'
-        },
-        {
-          id: 'dc3',
-          question: 'What is the primary difference between design verification and design validation?',
-          type: 'multiple-choice',
-          options: [
-            'Verification is done before validation',
-            'Verification confirms design outputs meet inputs; validation ensures the device meets user needs',
-            'Validation is only required for Class III devices',
-            'They are the same process with different names'
-          ],
-          correctAnswer: 'Verification confirms design outputs meet inputs; validation ensures the device meets user needs',
-          context: 'Both verification and validation are required under 21 CFR 820.30.',
-          guidance: 'Verification (820.30(f)) confirms design outputs meet design input requirements. Validation (820.30(g)) ensures devices conform to defined user needs under actual use conditions.'
-        }
-      ]
-    },
-    {
-      id: 'iso13485-management-review',
-      title: 'ISO 13485 Management Review Audit',
-      description: 'Practice responding to questions about management review processes under ISO 13485',
-      category: 'ISO 13485',
-      difficulty: 'Beginner',
-      estimatedTime: 15,
-      questions: [
-        {
-          id: 'mr1',
-          question: 'How frequently does your organization conduct management reviews?',
-          type: 'multiple-choice',
-          options: [
-            'Monthly',
-            'At planned intervals, at least annually',
-            'Only when there are problems',
-            'Every six months'
-          ],
-          correctAnswer: 'At planned intervals, at least annually',
-          context: 'ISO 13485:2016 requires management reviews to be conducted at planned intervals.',
-          guidance: 'Clause 5.6.1 requires management reviews at planned intervals. While not specified, annual reviews are common practice with more frequent reviews as needed.'
-        },
-        {
-          id: 'mr2',
-          question: 'Describe what inputs you provide to management review meetings.',
-          type: 'open-ended',
-          context: 'The auditor wants to understand if your management review inputs align with ISO 13485:2016 clause 5.6.2.',
-          guidance: 'Inputs should include audit results, customer feedback, process performance, product conformity, corrective and preventive actions, changes affecting QMS, and improvement recommendations.'
-        }
-      ]
-    },
-    {
-      id: 'risk-management-audit',
-      title: 'ISO 14971 Risk Management Audit',
-      description: 'Advanced scenario covering risk management processes and documentation',
-      category: 'Risk Management',
-      difficulty: 'Advanced',
-      estimatedTime: 35,
-      questions: [
-        {
-          id: 'rm1',
-          question: 'Walk me through your risk management process from hazard identification to post-market surveillance.',
-          type: 'open-ended',
-          context: 'The auditor wants to see if you understand the complete risk management lifecycle per ISO 14971.',
-          guidance: 'Should cover: risk management planning, risk analysis (hazard identification, risk estimation), risk evaluation, risk control, residual risk evaluation, and post-market surveillance.'
-        },
-        {
-          id: 'rm2',
-          question: 'How do you demonstrate that risk control measures are effective?',
-          type: 'multiple-choice',
-          options: [
-            'Through design verification activities only',
-            'By documenting the risk control measures implemented',
-            'Through verification of implementation and validation of effectiveness',
-            'By conducting risk analysis again'
-          ],
-          correctAnswer: 'Through verification of implementation and validation of effectiveness',
-          context: 'ISO 14971 requires both verification and validation of risk control measures.',
-          guidance: 'Clause 7.4 requires verification that risk control measures have been implemented and validation that they are effective in reducing risk.'
-        }
-      ]
-    }
+  const standards = [
+    { id: 'fda-qsr', name: 'FDA 21 CFR Part 820', description: 'Quality System Regulation' },
+    { id: 'iso-13485', name: 'ISO 13485:2016', description: 'Medical Device QMS' },
+    { id: 'eu-mdr', name: 'EU MDR 2017/745', description: 'European Medical Device Regulation' },
+    { id: 'iso-14971', name: 'ISO 14971:2019', description: 'Risk Management for Medical Devices' }
   ]
 
-  const startAuditSession = (scenario: AuditScenario) => {
-    const session: AuditSession = {
+  const createSimulation = () => {
+    if (!selectedStandard) return
+
+    const standard = standards.find(s => s.id === selectedStandard)
+    if (!standard) return
+
+    const newSimulation: AuditSimulation = {
       id: Date.now().toString(),
-      scenarioId: scenario.id,
-      startTime: new Date(),
-      answers: {},
-      completed: false
-    }
-    
-    setCurrentSession(session)
-    setSelectedScenario(scenario)
-    setCurrentQuestionIndex(0)
-    setSelectedAnswer('')
-    setOpenAnswer('')
-    toast.success(`Started ${scenario.title}`)
-  }
-
-  const saveAnswer = () => {
-    if (!currentSession || !selectedScenario) return
-
-    const currentQuestion = selectedScenario.questions[currentQuestionIndex]
-    const answer = currentQuestion.type === 'multiple-choice' ? selectedAnswer : openAnswer
-
-    if (!answer.trim()) {
-      toast.error('Please provide an answer before continuing')
-      return
-    }
-
-    const updatedSession = {
-      ...currentSession,
-      answers: {
-        ...currentSession.answers,
-        [currentQuestion.id]: answer
-      }
-    }
-
-    setCurrentSession(updatedSession)
-
-    if (currentQuestionIndex < selectedScenario.questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-      setSelectedAnswer('')
-      setOpenAnswer('')
-      toast.success('Answer saved')
-    } else {
-      completeAuditSession(updatedSession)
-    }
-  }
-
-  const completeAuditSession = (session: AuditSession) => {
-    if (!selectedScenario) return
-
-    // Calculate score for multiple-choice questions
-    let score = 0
-    let totalMCQuestions = 0
-    
-    selectedScenario.questions.forEach(question => {
-      if (question.type === 'multiple-choice' && question.correctAnswer) {
-        totalMCQuestions++
-        if (session.answers[question.id] === question.correctAnswer) {
-          score++
+      standard: standard.name,
+      progress: 0,
+      status: 'not_started',
+      createdAt: new Date(),
+      steps: [
+        {
+          id: 'scope',
+          title: 'Define Audit Scope',
+          description: 'Identify the processes, departments, and requirements to be audited',
+          completed: false,
+          required: true,
+          requirements: [
+            'Identify applicable regulatory requirements',
+            'Define organizational scope',
+            'List processes to be evaluated',
+            'Establish audit criteria'
+          ]
+        },
+        {
+          id: 'team',
+          title: 'Assemble Audit Team',
+          description: 'Select qualified auditors and define roles',
+          completed: false,
+          required: true,
+          requirements: [
+            'Select lead auditor',
+            'Choose technical experts',
+            'Ensure independence',
+            'Define team responsibilities'
+          ]
+        },
+        {
+          id: 'planning',
+          title: 'Audit Planning',
+          description: 'Create detailed audit plan and schedule',
+          completed: false,
+          required: true,
+          requirements: [
+            'Develop audit plan',
+            'Create audit checklist',
+            'Schedule activities',
+            'Prepare documentation'
+          ]
+        },
+        {
+          id: 'execution',
+          title: 'Conduct Audit',
+          description: 'Execute audit activities and collect evidence',
+          completed: false,
+          required: true,
+          requirements: [
+            'Review documentation',
+            'Interview personnel',
+            'Observe processes',
+            'Collect objective evidence'
+          ]
+        },
+        {
+          id: 'findings',
+          title: 'Document Findings',
+          description: 'Record observations and identify non-conformities',
+          completed: false,
+          required: true,
+          requirements: [
+            'Document observations',
+            'Classify findings',
+            'Verify evidence',
+            'Prepare preliminary results'
+          ]
+        },
+        {
+          id: 'report',
+          title: 'Audit Report',
+          description: 'Prepare and present final audit report',
+          completed: false,
+          required: true,
+          requirements: [
+            'Compile findings',
+            'Write executive summary',
+            'Include recommendations',
+            'Present to management'
+          ]
         }
-      }
-    })
-
-    const finalScore = totalMCQuestions > 0 ? Math.round((score / totalMCQuestions) * 100) : 0
-
-    const completedSession = {
-      ...session,
-      completed: true,
-      score: finalScore,
-      feedback: generateFeedback(session, selectedScenario, finalScore)
+      ]
     }
 
-    setAuditSessions(current => [...current, completedSession])
-    setCurrentSession(completedSession)
-    toast.success('Audit simulation completed!')
+    setSimulations(prev => [...prev, newSimulation])
+    setActiveSimulation(newSimulation.id)
   }
 
-  const generateFeedback = (session: AuditSession, scenario: AuditScenario, score: number): string => {
-    let feedback = `Audit simulation completed with a score of ${score}%.\n\n`
-
-    if (score >= 80) {
-      feedback += "Excellent performance! You demonstrated strong understanding of regulatory requirements."
-    } else if (score >= 60) {
-      feedback += "Good performance with room for improvement. Review the areas where you missed questions."
-    } else {
-      feedback += "Consider additional training in this regulatory area before a real audit."
-    }
-
-    feedback += "\n\nKey Areas for Review:\n"
-    
-    scenario.questions.forEach(question => {
-      if (question.type === 'multiple-choice' && question.correctAnswer) {
-        const userAnswer = session.answers[question.id]
-        if (userAnswer !== question.correctAnswer) {
-          feedback += `• ${question.question.substring(0, 50)}...\n`
+  const toggleStepCompletion = (simulationId: string, stepId: string) => {
+    setSimulations(prev => prev.map(sim => {
+      if (sim.id !== simulationId) return sim
+      
+      const updatedSteps = sim.steps.map(step => {
+        if (step.id === stepId) {
+          return { ...step, completed: !step.completed }
         }
-      }
-    })
-
-    return feedback
+        return step
+      })
+      
+      const completedSteps = updatedSteps.filter(step => step.completed).length
+      const progress = (completedSteps / updatedSteps.length) * 100
+      const status = progress === 100 ? 'completed' : progress > 0 ? 'in_progress' : 'not_started'
+      
+      return { ...sim, steps: updatedSteps, progress, status }
+    }))
   }
 
-  const resetSimulation = () => {
-    setCurrentSession(null)
-    setSelectedScenario(null)
-    setCurrentQuestionIndex(0)
-    setSelectedAnswer('')
-    setOpenAnswer('')
-  }
+  const currentSimulation = simulations.find(sim => sim.id === activeSimulation)
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Beginner': return 'bg-secondary'
-      case 'Intermediate': return 'bg-accent'
-      case 'Advanced': return 'bg-destructive'
-      default: return 'bg-muted'
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-600'
+      case 'in_progress': return 'text-yellow-600'
+      default: return 'text-gray-600'
     }
   }
 
-  if (currentSession && selectedScenario) {
-    const currentQuestion = selectedScenario.questions[currentQuestionIndex]
-    const progress = ((currentQuestionIndex + 1) / selectedScenario.questions.length) * 100
-
-    if (currentSession.completed) {
-      // Show results
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Audit Simulation Complete</h2>
-            <p className="text-muted-foreground">Review your performance and get recommendations</p>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                {selectedScenario.title} - Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-primary">{currentSession.score}%</div>
-                    <div className="text-sm text-muted-foreground">Overall Score</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-accent">{selectedScenario.questions.length}</div>
-                    <div className="text-sm text-muted-foreground">Questions Answered</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-secondary">
-                      {Math.round((new Date().getTime() - currentSession.startTime.getTime()) / 60000)}m
-                    </div>
-                    <div className="text-sm text-muted-foreground">Time Taken</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {currentSession.feedback && (
-                <div>
-                  <h3 className="font-semibold mb-2">Detailed Feedback</h3>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="whitespace-pre-line text-sm">{currentSession.feedback}</div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button onClick={resetSimulation}>
-                  Try Another Simulation
-                </Button>
-                <Button variant="outline" onClick={() => window.print()}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export Report
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-4 w-4" />
+      case 'in_progress': return <Clock className="h-4 w-4" />
+      default: return <Play className="h-4 w-4" />
     }
-
-    // Show current question
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{selectedScenario.title}</h2>
-            <p className="text-muted-foreground">Question {currentQuestionIndex + 1} of {selectedScenario.questions.length}</p>
-          </div>
-          <Button variant="outline" onClick={resetSimulation}>
-            Exit Simulation
-          </Button>
-        </div>
-
-        <div className="space-y-4">
-          <Progress value={progress} className="h-2" />
-          <div className="text-sm text-muted-foreground text-center">
-            {Math.round(progress)}% Complete
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Question {currentQuestionIndex + 1}</CardTitle>
-            {currentQuestion.context && (
-              <CardDescription>{currentQuestion.context}</CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-lg font-medium">{currentQuestion.question}</div>
-
-            {currentQuestion.type === 'multiple-choice' && currentQuestion.options ? (
-              <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer}>
-                <div className="space-y-3">
-                  {currentQuestion.options.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option} id={`option-${index}`} />
-                      <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            ) : (
-              <Textarea
-                placeholder="Provide a detailed response..."
-                value={openAnswer}
-                onChange={(e) => setOpenAnswer(e.target.value)}
-                rows={6}
-                className="resize-none"
-              />
-            )}
-
-            {currentQuestion.guidance && (
-              <div className="bg-muted p-4 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-medium text-sm mb-1">Guidance</div>
-                    <div className="text-sm text-muted-foreground">{currentQuestion.guidance}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between">
-              <Button 
-                variant="outline" 
-                onClick={() => currentQuestionIndex > 0 && setCurrentQuestionIndex(currentQuestionIndex - 1)}
-                disabled={currentQuestionIndex === 0}
-              >
-                Previous
-              </Button>
-              <Button onClick={saveAnswer}>
-                {currentQuestionIndex === selectedScenario.questions.length - 1 ? 'Complete Simulation' : 'Next Question'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
-  // Show scenario selection
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Audit Preparation Simulator</h2>
-        <p className="text-muted-foreground">Practice with realistic audit scenarios to build confidence</p>
-      </div>
-
-      {auditSessions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendUp className="h-5 w-5" />
-              Your Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{auditSessions.length}</div>
-                <div className="text-sm text-muted-foreground">Simulations Completed</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-secondary">
-                  {auditSessions.length > 0 ? Math.round(auditSessions.reduce((acc, session) => acc + (session.score || 0), 0) / auditSessions.length) : 0}%
-                </div>
-                <div className="text-sm text-muted-foreground">Average Score</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-accent">
-                  {new Set(auditSessions.map(session => session.scenarioId)).size}
-                </div>
-                <div className="text-sm text-muted-foreground">Different Topics</div>
-              </div>
+      {/* Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Audit Preparation Simulator</CardTitle>
+              <CardDescription>Practice audit readiness with interactive simulations</CardDescription>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {auditScenarios.map(scenario => (
-          <Card key={scenario.id} className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-lg">{scenario.title}</CardTitle>
-                <Badge className={getDifficultyColor(scenario.difficulty)}>
-                  {scenario.difficulty}
-                </Badge>
-              </div>
-              <CardDescription>{scenario.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  {scenario.estimatedTime} min
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Target className="h-4 w-4" />
-                  {scenario.questions.length} questions
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="space-y-2">
-                <Badge variant="outline">{scenario.category}</Badge>
-                <div className="text-sm text-muted-foreground">
-                  Practice responding to {scenario.category} audit questions with realistic scenarios
-                </div>
-              </div>
-
-              <Button 
-                onClick={() => startAuditSession(scenario)}
-                className="w-full"
-              >
-                <Play className="w-4 h-4 mr-2" />
+            <div className="flex gap-2">
+              <Select value={selectedStandard} onValueChange={setSelectedStandard}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select standard for new simulation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {standards.map(standard => (
+                    <SelectItem key={standard.id} value={standard.id}>
+                      {standard.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={createSimulation} disabled={!selectedStandard}>
+                <Play className="mr-2 h-4 w-4" />
                 Start Simulation
               </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Simulations List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Your Simulations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[500px]">
+              {simulations.length === 0 ? (
+                <div className="text-center py-8 space-y-3">
+                  <Target className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <p className="text-sm text-muted-foreground">No simulations yet</p>
+                  <p className="text-xs text-muted-foreground">Select a standard and start your first simulation</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {simulations.map((simulation) => (
+                    <Card
+                      key={simulation.id}
+                      className={`cursor-pointer transition-colors ${
+                        activeSimulation === simulation.id ? 'ring-2 ring-primary' : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setActiveSimulation(simulation.id)}
+                    >
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-sm">{simulation.standard}</h4>
+                          <Badge variant={simulation.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
+                            {simulation.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Progress</span>
+                            <span>{Math.round(simulation.progress)}%</span>
+                          </div>
+                          <Progress value={simulation.progress} className="h-2" />
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {getStatusIcon(simulation.status)}
+                          <span>Created {simulation.createdAt.toLocaleDateString()}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Simulation Details */}
+        <div className="lg:col-span-2">
+          {currentSimulation ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{currentSimulation.standard}</CardTitle>
+                    <CardDescription>Audit Preparation Steps</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={currentSimulation.status === 'completed' ? 'default' : 'secondary'}>
+                      {currentSimulation.status.replace('_', ' ')}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {Math.round(currentSimulation.progress)}% Complete
+                    </span>
+                  </div>
+                </div>
+                <Progress value={currentSimulation.progress} className="mt-2" />
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-6">
+                    {currentSimulation.steps.map((step, index) => (
+                      <div key={step.id}>
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col items-center">
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                              step.completed 
+                                ? 'bg-primary border-primary text-primary-foreground' 
+                                : 'border-muted-foreground text-muted-foreground'
+                            }`}>
+                              {step.completed ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                <span className="text-xs font-medium">{index + 1}</span>
+                              )}
+                            </div>
+                            {index < currentSimulation.steps.length - 1 && (
+                              <div className="h-8 w-px bg-border mt-2" />
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="font-medium">{step.title}</h3>
+                                <p className="text-sm text-muted-foreground">{step.description}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {step.required && (
+                                  <Badge variant="outline" className="text-xs">Required</Badge>
+                                )}
+                                <Checkbox
+                                  checked={step.completed}
+                                  onCheckedChange={() => toggleStepCompletion(currentSimulation.id, step.id)}
+                                />
+                              </div>
+                            </div>
+                            
+                            <Card className="bg-muted/50">
+                              <CardContent className="p-4">
+                                <h4 className="font-medium text-sm mb-2">Key Requirements:</h4>
+                                <ul className="space-y-1">
+                                  {step.requirements.map((req, reqIndex) => (
+                                    <li key={reqIndex} className="text-sm text-muted-foreground flex items-center gap-2">
+                                      <div className="h-1 w-1 rounded-full bg-muted-foreground" />
+                                      {req}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                        {index < currentSimulation.steps.length - 1 && <div className="h-4" />}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-16 text-center space-y-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto">
+                  <Shield className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium">No Simulation Selected</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Select an existing simulation from the sidebar or create a new one to begin your audit preparation.
+                </p>
+                <div className="flex justify-center gap-2">
+                  <Select value={selectedStandard} onValueChange={setSelectedStandard}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="Choose a standard" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {standards.map(standard => (
+                        <SelectItem key={standard.id} value={standard.id}>
+                          {standard.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={createSimulation} disabled={!selectedStandard}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Start New Simulation
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      {simulations.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-primary">
+                {simulations.length}
+              </div>
+              <p className="text-sm text-muted-foreground">Total Simulations</p>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {simulations.filter(s => s.status === 'completed').length}
+              </div>
+              <p className="text-sm text-muted-foreground">Completed</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {simulations.filter(s => s.status === 'in_progress').length}
+              </div>
+              <p className="text-sm text-muted-foreground">In Progress</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-accent">
+                {Math.round(simulations.reduce((acc, sim) => acc + sim.progress, 0) / simulations.length) || 0}%
+              </div>
+              <p className="text-sm text-muted-foreground">Average Progress</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
