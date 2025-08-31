@@ -133,31 +133,6 @@ export function CitationManager() {
     return matchesSearch && matchesCategory && matchesStandard
   })
 
-  const handleSubmit = () => {
-    if (!formData.title || !formData.standard || !formData.content) return
-
-    const citation: Citation = {
-      id: editingCitation?.id || Date.now().toString(),
-      title: formData.title,
-      standard: formData.standard,
-      section: formData.section,
-      content: formData.content,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-      url: formData.url || undefined,
-      category: formData.category,
-      dateAdded: editingCitation?.dateAdded || new Date(),
-      lastModified: new Date()
-    }
-
-    if (editingCitation) {
-      setCitations(prev => prev.map(c => c.id === citation.id ? citation : c))
-    } else {
-      setCitations(prev => [...prev, citation])
-    }
-
-    resetForm()
-  }
-
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'requirement': return 'bg-primary'
