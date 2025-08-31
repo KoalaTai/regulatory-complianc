@@ -22,6 +22,7 @@ export function AIAssistant() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -33,6 +34,45 @@ export function AIAssistant() {
     "What's the difference between EU MDR and FDA QSR?",
     "Help me understand risk management for medical devices"
   ]
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const recognition = new SpeechRecognition()
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = 'en-US'
+      
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript
+        setInputMessage(transcript)
+        setIsListening(false)
+      }
+      
+      recognition.onerror = () => {
+        setIsListening(false)
+      }
+      
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+      
+      setSpeechRecognition(recognition)
+    }
+  }, [])
+
+  const toggleVoiceInput = () => {
+    if (!speechRecognition) return
+    
+    if (isListening) {
+      speechRecognition.stop()
+      setIsListening(false)
+    } else {{
+      speechRecognition.start()
+      setIsListening(true)
+    }
+  }
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return
@@ -227,9 +267,10 @@ export function AIAssistant() {
                     variant="ghost"
                     size="sm"
                     className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-                    onClick={() => setIsListening(!isListening)}
+                    onClick={toggleVoiceInput}
+                    disabled={!speechRecognition}
                   >
-                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {isListening ? <MicOff className="h-4 w-4 text-red-500" /> : <Mic className="h-4 w-4" />}
                   </Button>
                 </div>
                 <Button 
@@ -241,7 +282,7 @@ export function AIAssistant() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Press Enter to send, Shift+Enter for new line
+                Press Enter to send, Shift+Enter for new line. Click microphone to use voice input.
               </p>
             </div>
           </CardContent>

@@ -10,6 +10,7 @@ import { StandardsBrowser } from '@/components/StandardsBrowser'
 import { AIAssistant } from '@/components/AIAssistant'
 import { AuditSimulator } from '@/components/AuditSimulator'
 import { CitationManager } from '@/components/CitationManager'
+import { HelpBubble } from '@/components/HelpBubble'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -204,6 +205,9 @@ function App() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Context-aware help bubble */}
+      <HelpBubble activeTab={activeTab} />
     </div>
   )
 }

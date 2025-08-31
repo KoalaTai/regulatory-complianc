@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, Plus, Search, Edit, Trash2, Copy, ExternalLink, Tag, Calendar } from '@phosphor-icons/react'
+import { FileText, Plus, Search, Edit, Trash2, Copy, ExternalLink, Tag, Calendar, Sparkles, RefreshCw } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
 
 interface Citation {
@@ -31,6 +31,9 @@ export function CitationManager() {
   const [selectedStandard, setSelectedStandard] = useState('all')
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingCitation, setEditingCitation] = useState<Citation | null>(null)
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState<Citation[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   // Form state for adding/editing citations
   const [formData, setFormData] = useState({
@@ -122,6 +125,59 @@ export function CitationManager() {
     navigator.clipboard.writeText(formatted)
   }
 
+  const generateAISuggestions = async () => {
+    if (isGeneratingSuggestions) return
+    
+    setIsGeneratingSuggestions(true)
+    try {
+      const prompt = spark.llmPrompt`Generate 5 important regulatory citations for medical device compliance. 
+      Include a mix of FDA QSR, ISO 13485, and EU MDR requirements. 
+      For each citation, provide:
+      - Title (specific requirement name)
+      - Standard (e.g., "FDA 21 CFR Part 820")
+      - Section (e.g., "820.30")
+      - Content (1-2 sentences describing the requirement)
+      - Category (requirement, guidance, definition, or procedure)
+      - Tags (3-4 relevant keywords)
+      
+      Focus on commonly referenced requirements like design controls, risk management, and validation.
+      
+      Return as JSON array with this structure:
+      [{"title": "...", "standard": "...", "section": "...", "content": "...", "category": "...", "tags": ["...", "..."]}]`
+      
+      const response = await spark.llm(prompt, 'gpt-4o', true)
+      const suggestions = JSON.parse(response)
+      
+      const formattedSuggestions: Citation[] = suggestions.map((suggestion: any, index: number) => ({
+        id: `ai-suggestion-${Date.now()}-${index}`,
+        title: suggestion.title,
+        standard: suggestion.standard,
+        section: suggestion.section,
+        content: suggestion.content,
+        tags: Array.isArray(suggestion.tags) ? suggestion.tags : [],
+        category: suggestion.category as Citation['category'],
+        dateAdded: new Date(),
+        lastModified: new Date()
+      }))
+      
+      setAiSuggestions(formattedSuggestions)
+      setShowSuggestions(true)
+    } catch (error) {
+      console.error('Failed to generate AI suggestions:', error)
+    } finally {
+      setIsGeneratingSuggestions(false)
+    }
+  }
+
+  const addSuggestedCitation = (suggestion: Citation) => {
+    const newCitation: Citation = {
+      ...suggestion,
+      id: Date.now().toString()
+    }
+    setCitations(current => [...current, newCitation])
+    setAiSuggestions(current => current.filter(s => s.id !== suggestion.id))
+  }
+
   const filteredCitations = citations.filter(citation => {
     const matchesSearch = citation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          citation.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,14 +205,30 @@ export function CitationManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Citation Manager</CardTitle>
-              <CardDescription>Organize and manage regulatory citations and references</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Citation Manager</CardTitle>
+                <CardDescription>Organize and manage regulatory citations and references</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={generateAISuggestions}
+                  disabled={isGeneratingSuggestions}
+                >
+                  {isGeneratingSuggestions ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  AI Suggestions
+                </Button>
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Citation
+                </Button>
+              </div>
             </div>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Citation
-            </Button>
           </div>
         </CardHeader>
       </Card>
@@ -222,6 +294,82 @@ export function CitationManager() {
 
         {/* Citations List */}
         <div className="lg:col-span-3">
+          {/* AI Suggestions */}
+          {showSuggestions && aiSuggestions.length > 0 && (
+            <Card className="mb-6 border-2 border-accent">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-accent" />
+                      AI-Generated Citation Suggestions
+                    </CardTitle>
+                    <CardDescription>
+                      Review and add relevant regulatory citations to your library
+                    </CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowSuggestions(false)}>
+                    ✕
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-96">
+                  <div className="space-y-4">
+                    {aiSuggestions.map((suggestion) => (
+                      <Card key={suggestion.id} className="border-l-4 border-l-accent">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1 flex-1">
+                                <h4 className="font-medium">{suggestion.title}</h4>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="text-xs">
+                                    {suggestion.standard}
+                                  </Badge>
+                                  {suggestion.section && (
+                                    <Badge variant="outline" className="text-xs">
+                                      §{suggestion.section}
+                                    </Badge>
+                                  )}
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs text-white ${getCategoryColor(suggestion.category)}`}
+                                  >
+                                    {suggestion.category}
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              <Button size="sm" onClick={() => addSuggestedCitation(suggestion)}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add
+                              </Button>
+                            </div>
+
+                            <div className="bg-muted/50 rounded-lg p-3">
+                              <p className="text-sm">{suggestion.content}</p>
+                            </div>
+
+                            {suggestion.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {suggestion.tags.map((tag, tagIndex) => (
+                                  <Badge key={tagIndex} variant="outline" className="text-xs">
+                                    <Tag className="h-3 w-3 mr-1" />
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
           {showAddForm && (
             <Card className="mb-6">
               <CardHeader>

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Play, CheckCircle, AlertTriangle, Clock, FileText, Target, Users, Shield } from '@phosphor-icons/react'
+import { Play, CheckCircle, AlertTriangle, Clock, FileText, Target, Users, Shield, Sparkles, RefreshCw } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
 
 interface AuditStep {
@@ -27,12 +27,15 @@ interface AuditSimulation {
   status: 'not_started' | 'in_progress' | 'completed'
   steps: AuditStep[]
   createdAt: Date
+  aiGenerated?: boolean
+  scenario?: string
 }
 
 export function AuditSimulator() {
   const [simulations, setSimulations] = useKV<AuditSimulation[]>('audit-simulations', [])
   const [activeSimulation, setActiveSimulation] = useState<string | null>(null)
   const [selectedStandard, setSelectedStandard] = useState('')
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
   const standards = [
     { id: 'fda-qsr', name: 'FDA 21 CFR Part 820', description: 'Quality System Regulation' },
@@ -139,6 +142,61 @@ export function AuditSimulator() {
     setActiveSimulation(newSimulation.id)
   }
 
+  const createAISimulation = async () => {
+    if (!selectedStandard || isGeneratingAI) return
+
+    const standard = standards.find(s => s.id === selectedStandard)
+    if (!standard) return
+
+    setIsGeneratingAI(true)
+    try {
+      const prompt = spark.llmPrompt`Generate a realistic audit simulation scenario for ${standard.name} (${standard.description}).
+
+      Create a detailed audit simulation with:
+      1. A realistic company scenario (type of device, size of company, specific challenges)
+      2. 6 customized audit preparation steps with specific requirements for this scenario
+      3. Each step should have 4-5 specific requirements tailored to the scenario
+
+      Return as JSON with this structure:
+      {
+        "scenario": "Brief description of the company and device scenario",
+        "steps": [
+          {
+            "id": "step-id",
+            "title": "Step Title",
+            "description": "Step description",
+            "requirements": ["req1", "req2", "req3", "req4"]
+          }
+        ]
+      }`
+
+      const response = await spark.llm(prompt, 'gpt-4o', true)
+      const aiData = JSON.parse(response)
+
+      const newSimulation: AuditSimulation = {
+        id: Date.now().toString(),
+        standard: standard.name,
+        progress: 0,
+        status: 'not_started',
+        createdAt: new Date(),
+        aiGenerated: true,
+        scenario: aiData.scenario,
+        steps: aiData.steps.map((step: any) => ({
+          ...step,
+          completed: false,
+          required: true
+        }))
+      }
+
+      setSimulations(prev => [...prev, newSimulation])
+      setActiveSimulation(newSimulation.id)
+    } catch (error) {
+      console.error('Failed to generate AI simulation:', error)
+    } finally {
+      setIsGeneratingAI(false)
+    }
+  }
+
   const toggleStepCompletion = (simulationId: string, stepId: string) => {
     setSimulations(prev => prev.map(sim => {
       if (sim.id !== simulationId) return sim
@@ -203,6 +261,18 @@ export function AuditSimulator() {
                 <Play className="mr-2 h-4 w-4" />
                 Start Simulation
               </Button>
+              <Button 
+                onClick={createAISimulation} 
+                disabled={!selectedStandard || isGeneratingAI}
+                variant="outline"
+              >
+                {isGeneratingAI ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                AI Scenario
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -234,7 +304,15 @@ export function AuditSimulator() {
                     >
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{simulation.standard}</h4>
+                          <h4 className="font-medium text-sm flex items-center gap-2">
+                            {simulation.standard}
+                            {simulation.aiGenerated && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                AI
+                              </Badge>
+                            )}
+                          </h4>
                           <Badge variant={simulation.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                             {simulation.status.replace('_', ' ')}
                           </Badge>
@@ -268,8 +346,22 @@ export function AuditSimulator() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>{currentSimulation.standard}</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      {currentSimulation.standard}
+                      {currentSimulation.aiGenerated && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          AI Generated
+                        </Badge>
+                      )}
+                    </CardTitle>
                     <CardDescription>Audit Preparation Steps</CardDescription>
+                    {currentSimulation.scenario && (
+                      <div className="mt-2 p-3 bg-accent/20 rounded-lg">
+                        <p className="text-sm text-accent-foreground font-medium">Scenario:</p>
+                        <p className="text-sm text-muted-foreground mt-1">{currentSimulation.scenario}</p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={currentSimulation.status === 'completed' ? 'default' : 'secondary'}>
