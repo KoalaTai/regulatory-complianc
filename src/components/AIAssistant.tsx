@@ -75,7 +75,7 @@ export function AIAssistant() {
     if (isListening) {
       speechRecognition.stop()
       setIsListening(false)
-    } else {{
+    } else {
       speechRecognition.start()
       setIsListening(true)
     }
