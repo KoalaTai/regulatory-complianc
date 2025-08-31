@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { BookOpen, MessageCircle, Shield, Search, Brain, FileCheck, Users, Globe, SignIn } from '@phosphor-icons/react'
+import { BookOpen, MessageCircle, Shield, Search, Brain, FileCheck, Users, Globe, SignIn, Upload, FileText } from '@phosphor-icons/react'
 import { StandardsBrowser } from '@/components/StandardsBrowser'
 import { AIAssistant } from '@/components/AIAssistant'
 import { AuditSimulator } from '@/components/AuditSimulator'
 import { CitationManager } from '@/components/CitationManager'
+import { DocumentAnalyzer } from '@/components/DocumentAnalyzer'
 import { HelpBubble } from '@/components/HelpBubble'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { AuthModal } from '@/components/AuthModal'
@@ -59,11 +60,19 @@ const MainApp = () => {
       icon: Brain,
       action: () => setActiveTab('assistant'),
       badge: 'AI'
+    },
+    {
+      title: 'Document Analysis',
+      description: 'Upload docs for compliance gap analysis',
+      icon: Upload,
+      action: () => setActiveTab('analyzer'),
+      badge: 'New'
     }
   ]
 
   const recentActivity = [
     { type: 'search', text: 'Searched for "design controls FDA"', time: '2 hours ago' },
+    { type: 'document', text: 'Analyzed Quality Manual - found 3 compliance gaps', time: '4 hours ago' },
     { type: 'chat', text: 'Asked about ISO 14971 risk management', time: '1 day ago' },
     { type: 'audit', text: 'Completed QSR audit simulation', time: '3 days ago' },
     { type: 'citation', text: 'Added 5 citations to compliance document', time: '1 week ago' }
@@ -116,10 +125,11 @@ const MainApp = () => {
       {/* Main Navigation */}
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="standards">Standards</TabsTrigger>
             <TabsTrigger value="assistant">AI Assistant</TabsTrigger>
+            <TabsTrigger value="analyzer">Doc Analysis</TabsTrigger>
             <TabsTrigger value="audit">Audit Prep</TabsTrigger>
             <TabsTrigger value="citations">Citations</TabsTrigger>
           </TabsList>
@@ -165,7 +175,7 @@ const MainApp = () => {
                         <CardDescription>Get started with common regulatory tasks</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {quickActions.map((action, index) => (
                             <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={action.action}>
                               <CardContent className="p-4">
@@ -203,10 +213,12 @@ const MainApp = () => {
                               <div className="flex items-start gap-3">
                                 <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${
                                   activity.type === 'search' ? 'bg-primary' :
+                                  activity.type === 'document' ? 'bg-purple-500' :
                                   activity.type === 'chat' ? 'bg-secondary' :
                                   activity.type === 'audit' ? 'bg-accent' : 'bg-destructive'
                                 }`}>
                                   {activity.type === 'search' ? <Search className="h-4 w-4" /> :
+                                   activity.type === 'document' ? <FileText className="h-4 w-4" /> :
                                    activity.type === 'chat' ? <MessageCircle className="h-4 w-4" /> :
                                    activity.type === 'audit' ? <Shield className="h-4 w-4" /> : <FileCheck className="h-4 w-4" />}
                                 </div>
@@ -235,6 +247,11 @@ const MainApp = () => {
           {/* AI Assistant Tab */}
           <TabsContent value="assistant">
             <AIAssistant />
+          </TabsContent>
+
+          {/* Document Analyzer Tab */}
+          <TabsContent value="analyzer">
+            <DocumentAnalyzer />
           </TabsContent>
 
           {/* Audit Simulator Tab */}

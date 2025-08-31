@@ -27,7 +27,9 @@ import {
   Filter,
   Activity,
   BarChart3,
-  Zap
+  Zap,
+  Upload,
+  FileText
 } from '@phosphor-icons/react'
 
 interface TrackedStandard {
@@ -89,6 +91,7 @@ export const PersonalizedDashboard = () => {
   const [trackedStandards, setTrackedStandards] = useKV<TrackedStandard[]>("user-tracked-standards", [])
   const [complianceGoals, setComplianceGoals] = useKV<ComplianceGoal[]>("user-compliance-goals", [])
   const [recentActivity, setRecentActivity] = useKV<ActivityItem[]>("user-activity-feed", [])
+  const [analyzedDocuments] = useKV<any[]>("analyzed-documents", [])
   const [showAddStandard, setShowAddStandard] = useState(false)
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [newGoalTitle, setNewGoalTitle] = useState('')
@@ -170,6 +173,16 @@ export const PersonalizedDashboard = () => {
         description: 'Started tracking FDA QSR and ISO 13485 standards',
         standardId: 'FDA_QSR'
       })
+      
+      // Add sample document analysis activity
+      setTimeout(() => {
+        addActivity({
+          type: 'document-analyzed',
+          title: 'Document Analysis Complete',
+          description: 'Analyzed Quality Manual - found 3 compliance gaps',
+          standardId: 'ISO_13485'
+        })
+      }, 100)
     }
   }, [user])
 
@@ -303,7 +316,7 @@ export const PersonalizedDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -353,12 +366,28 @@ export const PersonalizedDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm font-medium text-muted-foreground">Analyzed Documents</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {analyzedDocuments.filter(doc => doc.status === 'completed').length}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm font-medium text-muted-foreground">Upcoming Deadlines</p>
                 <p className="text-2xl font-bold text-foreground">
                   {complianceGoals.filter(g => new Date(g.targetDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length}
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-destructive">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500">
                 <Clock className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -389,7 +418,7 @@ export const PersonalizedDashboard = () => {
                   <CardDescription>Get started with common compliance tasks</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAddStandard(true)}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
@@ -422,6 +451,22 @@ export const PersonalizedDashboard = () => {
                         </div>
                       </CardContent>
                     </Card>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.location.hash = 'analyzer'}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                            <Upload className="h-5 w-5 text-foreground" />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-sm">Analyze Document</h3>
+                              <Badge variant="secondary" className="text-xs">AI</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Upload docs for gap analysis</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </CardContent>
               </Card>
@@ -445,12 +490,14 @@ export const PersonalizedDashboard = () => {
                             activity.type === 'standard-added' ? 'bg-primary' :
                             activity.type === 'section-completed' ? 'bg-secondary' :
                             activity.type === 'goal-created' ? 'bg-accent' :
-                            activity.type === 'audit-completed' ? 'bg-destructive' : 'bg-muted'
+                            activity.type === 'audit-completed' ? 'bg-destructive' :
+                            activity.type === 'document-analyzed' ? 'bg-purple-500' : 'bg-muted'
                           }`}>
                             {activity.type === 'standard-added' ? <BookOpen className="h-4 w-4" /> :
                              activity.type === 'section-completed' ? <CheckCircle className="h-4 w-4" /> :
                              activity.type === 'goal-created' ? <Target className="h-4 w-4" /> :
-                             activity.type === 'audit-completed' ? <CheckCircle className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
+                             activity.type === 'audit-completed' ? <CheckCircle className="h-4 w-4" /> :
+                             activity.type === 'document-analyzed' ? <FileText className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
                           </div>
                           <div className="flex-1 space-y-1">
                             <p className="text-sm font-medium">{activity.title}</p>

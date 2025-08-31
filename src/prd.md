@@ -48,6 +48,11 @@ Regulatory compliance is a complex, long-term process that requires careful plan
 - **Purpose**: Centralized view of all compliance work
 - **Success Criteria**: Users manage entire compliance program from single interface
 
+### 7. Document Analysis & Gap Identification ✅ IMPLEMENTED
+- **Functionality**: Upload regulatory documents (PDF, Word, text) for AI-powered compliance gap analysis against selected standards
+- **Purpose**: Identify missing, incomplete, outdated, or non-compliant sections in existing documentation
+- **Success Criteria**: Users discover compliance gaps early and receive actionable recommendations for remediation
+
 ### 7. Milestone & Timeline Management ✅ IMPLEMENTED
 - **Functionality**: Break goals into milestones with individual progress tracking and deadlines
 - **Purpose**: Make large compliance projects manageable and trackable

@@ -97,6 +97,32 @@ export function HelpBubble({ activeTab = 'dashboard', contextData }: HelpBubbleP
         type: "info",
         relevantTo: ["references"]
       }
+    ],
+    analyzer: [
+      {
+        title: "Document Upload",
+        content: "Upload PDF, Word, or text documents up to 10MB. Select relevant standards before uploading for targeted analysis.",
+        type: "tip",
+        relevantTo: ["upload"]
+      },
+      {
+        title: "Gap Analysis",
+        content: "The AI analyzes your document against selected regulatory standards and identifies missing, incomplete, or non-compliant sections.",
+        type: "info",
+        relevantTo: ["analysis"]
+      },
+      {
+        title: "Privacy Notice",
+        content: "Uploaded documents are analyzed locally and securely. Ensure you have authorization to upload sensitive company documents.",
+        type: "warning",
+        relevantTo: ["privacy"]
+      },
+      {
+        title: "Results Interpretation",
+        content: "Critical gaps require immediate attention. Use the recommendations to create an action plan for compliance improvement.",
+        type: "tip",
+        relevantTo: ["results"]
+      }
     ]
   }
 
