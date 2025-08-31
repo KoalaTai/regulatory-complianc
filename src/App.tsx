@@ -70,8 +70,8 @@ function App() {
                 <Shield className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Compliance Navigator</h1>
-                <p className="text-sm text-muted-foreground">AI-Powered Regulatory Assistant</p>
+                <h1 className="text-xl font-bold text-foreground">VirtualBackroom.ai</h1>
+                <p className="text-sm text-muted-foreground">AI-Powered Regulatory Compliance Platform</p>
               </div>
             </div>
             <Button variant="outline" size="sm">
