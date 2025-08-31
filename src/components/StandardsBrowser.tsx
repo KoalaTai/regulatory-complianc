@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -6,182 +6,55 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, BookOpen, Globe, Users, FileText, ExternalLink, Download, Star } from '@phosphor-icons/react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Search, BookOpen, Globe, Users, FileText, ExternalLink, Download, Star, Filter, Tag, Calendar, Building, Command } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
-
-interface StandardSection {
-  id: string
-  number: string
-  title: string
-  content: string
-  requirements: string[]
-  related?: string[]
-}
-
-interface RegulatoryStandard {
-  id: string
-  name: string
-  fullName: string
-  region: string
-  category: string
-  description: string
-  sections: number
-  lastUpdated: string
-  status: string
-  officialUrl?: string
-  sections_detail?: StandardSection[]
-  keyPoints?: string[]
-  applicability?: string[]
-}
+import { 
+  regulatoryStandards, 
+  searchStandards, 
+  getCategories, 
+  getRegions, 
+  getAllTags, 
+  getRelatedStandards,
+  type RegulatoryStandard,
+  type StandardSection
+} from '@/data/regulatoryStandards'
+import { ContentSearch, useContentSearch } from '@/components/ContentSearch'
 
 export function StandardsBrowser() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedRegion, setSelectedRegion] = useState('all')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedStandard, setSelectedStandard] = useState<RegulatoryStandard | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
+  const [showFilters, setShowFilters] = useState(false)
   const [favorites, setFavorites] = useKV<string[]>('favorite-standards', [])
+  
+  // Content search hook
+  const { isOpen: isContentSearchOpen, setIsOpen: setContentSearchOpen } = useContentSearch()
 
-  const standards: RegulatoryStandard[] = [
-    {
-      id: 'fda-qsr',
-      name: 'FDA 21 CFR Part 820',
-      fullName: 'Quality System Regulation',
-      region: 'United States',
-      category: 'Medical Devices',
-      description: 'Establishes quality system requirements for medical device manufacturers',
-      sections: 25,
-      lastUpdated: '2023-08-15',
-      status: 'Active',
-      officialUrl: 'https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-system-qs-regulationmedical-device-good-manufacturing-practices',
-      keyPoints: [
-        'Design controls for Class II and III devices',
-        'Risk-based approach to quality management',
-        'Document and data controls requirements',
-        'Management responsibility and planning'
-      ],
-      applicability: ['Medical Device Manufacturers', 'Contract Manufacturers', 'Importers'],
-      sections_detail: [
-        {
-          id: '820.30',
-          number: '820.30',
-          title: 'Design Controls',
-          content: 'Each manufacturer of any class III or class II device, and the class I devices listed in section 820.30(a)(2), shall establish and maintain procedures to control the design of the device in order to ensure that specified design requirements are met.',
-          requirements: [
-            'Design and development planning',
-            'Design input requirements',
-            'Design output requirements',
-            'Design review procedures',
-            'Design verification and validation'
-          ],
-          related: ['820.40', '820.180']
-        },
-        {
-          id: '820.40',
-          number: '820.40',
-          title: 'Document Controls',
-          content: 'Each manufacturer shall establish and maintain procedures to control all documents that are required by this part or that are used by the manufacturer to ensure device quality.',
-          requirements: [
-            'Document approval and authorization',
-            'Document distribution controls',
-            'Document changes and modifications',
-            'Document obsolescence management'
-          ],
-          related: ['820.30', '820.181']
-        }
-      ]
-    },
-    {
-      id: 'iso-13485',
-      name: 'ISO 13485:2016',
-      fullName: 'Medical Devices - Quality Management Systems',
-      region: 'International',
-      category: 'Medical Devices',
-      description: 'Requirements for quality management system for medical devices',
-      sections: 42,
-      lastUpdated: '2023-09-01',
-      status: 'Active',
-      officialUrl: 'https://www.iso.org/standard/59752.html',
-      keyPoints: [
-        'Risk-based approach to QMS',
-        'Regulatory compliance emphasis',
-        'Design and development controls',
-        'Post-market surveillance requirements'
-      ],
-      applicability: ['Medical Device Organizations', 'Regulatory Bodies', 'Notified Bodies'],
-      sections_detail: [
-        {
-          id: '7.3',
-          number: '7.3',
-          title: 'Design and Development',
-          content: 'The organization shall plan and control the design and development of the medical device.',
-          requirements: [
-            'Design and development planning',
-            'Design and development inputs',
-            'Design and development outputs',
-            'Design and development review',
-            'Design and development verification and validation'
-          ],
-          related: ['4.2', '8.2']
-        }
-      ]
-    },
-    {
-      id: 'eu-mdr',
-      name: 'EU MDR 2017/745',
-      fullName: 'European Medical Device Regulation',
-      region: 'European Union',
-      category: 'Medical Devices',
-      description: 'Regulation on medical devices in the European Union',
-      sections: 123,
-      lastUpdated: '2023-07-20',
-      status: 'Active',
-      officialUrl: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32017R0745',
-      keyPoints: [
-        'Strengthened clinical evidence requirements',
-        'Enhanced post-market surveillance',
-        'New device classification rules',
-        'Increased transparency through EUDAMED'
-      ],
-      applicability: ['EU Medical Device Manufacturers', 'Authorized Representatives', 'Notified Bodies']
-    },
-    {
-      id: 'iso-14971',
-      name: 'ISO 14971:2019',
-      fullName: 'Medical Devices - Risk Management',
-      region: 'International',
-      category: 'Risk Management',
-      description: 'Application of risk management to medical devices',
-      sections: 18,
-      lastUpdated: '2023-06-10',
-      status: 'Active',
-      officialUrl: 'https://www.iso.org/standard/72704.html',
-      keyPoints: [
-        'Risk management process throughout device lifecycle',
-        'Risk analysis and evaluation',
-        'Risk control measures',
-        'Residual risk evaluation'
-      ],
-      applicability: ['Medical Device Manufacturers', 'Risk Managers', 'Quality Professionals']
-    }
-  ]
+  // Get data using utility functions
+  const categories = useMemo(() => getCategories(), [])
+  const regions = useMemo(() => getRegions(), [])
+  const allTags = useMemo(() => getAllTags(), [])
 
-  const categories = [
-    { id: 'all', name: 'All Standards', count: standards.length },
-    { id: 'medical-devices', name: 'Medical Devices', count: 3 },
-    { id: 'risk-management', name: 'Risk Management', count: 1 },
-    { id: 'quality', name: 'Quality Systems', count: 2 }
-  ]
+  // Filter standards based on search and filters
+  const filteredStandards = useMemo(() => {
+    return searchStandards(
+      regulatoryStandards,
+      searchQuery,
+      selectedCategory,
+      selectedRegion,
+      selectedTags
+    )
+  }, [searchQuery, selectedCategory, selectedRegion, selectedTags])
 
-  const filteredStandards = standards.filter(standard => {
-    const matchesSearch = standard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         standard.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         standard.description.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesCategory = selectedCategory === 'all' || 
-                           standard.category.toLowerCase().includes(selectedCategory.replace('-', ' '))
-    
-    return matchesSearch && matchesCategory
-  })
+  // Get related standards for current standard
+  const relatedStandards = useMemo(() => {
+    if (!selectedStandard) return []
+    return getRelatedStandards(selectedStandard.id)
+  }, [selectedStandard])
 
   const toggleFavorite = (standardId: string) => {
     setFavorites(current => {
@@ -193,9 +66,38 @@ export function StandardsBrowser() {
     })
   }
 
-  const viewStandardDetail = (standard: RegulatoryStandard) => {
+  const toggleTag = (tag: string) => {
+    setSelectedTags(current => {
+      if (current.includes(tag)) {
+        return current.filter(t => t !== tag)
+      } else {
+        return [...current, tag]
+      }
+    })
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedCategory('all')
+    setSelectedRegion('all')
+    setSelectedTags([])
+  }
+
+  const viewStandardDetail = (standard: RegulatoryStandard, section?: StandardSection) => {
     setSelectedStandard(standard)
     setViewMode('detail')
+    // If a specific section was requested, scroll to it or focus on it
+    if (section) {
+      // Store the section to highlight it
+      setTimeout(() => {
+        const element = document.getElementById(section.id)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' })
+          element.classList.add('highlight-section')
+          setTimeout(() => element.classList.remove('highlight-section'), 3000)
+        }
+      }, 100)
+    }
   }
 
   const backToList = () => {
@@ -264,7 +166,7 @@ export function StandardsBrowser() {
 
           <TabsContent value="overview">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Description</CardTitle>
@@ -275,6 +177,33 @@ export function StandardsBrowser() {
                     </p>
                   </CardContent>
                 </Card>
+
+                {/* Related Standards */}
+                {relatedStandards.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Related Standards</CardTitle>
+                      <CardDescription>Standards commonly used together</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {relatedStandards.map((related) => (
+                          <Card key={related.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => viewStandardDetail(related)}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <BookOpen className="h-4 w-4 text-primary mt-0.5" />
+                                <div>
+                                  <h4 className="font-medium text-sm">{related.name}</h4>
+                                  <p className="text-xs text-muted-foreground mt-1">{related.description.substring(0, 80)}...</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
               
               <Card>
@@ -293,10 +222,24 @@ export function StandardsBrowser() {
                     <span className="text-sm font-medium">Category</span>
                     <Badge>{selectedStandard.category}</Badge>
                   </div>
+                  {selectedStandard.complianceLevel && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Compliance</span>
+                      <Badge variant={selectedStandard.complianceLevel === 'Mandatory' ? 'destructive' : 'secondary'}>
+                        {selectedStandard.complianceLevel}
+                      </Badge>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Sections</span>
                     <span className="text-sm">{selectedStandard.sections}</span>
                   </div>
+                  {selectedStandard.effectiveDate && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Effective Date</span>
+                      <span className="text-sm">{selectedStandard.effectiveDate}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Last Updated</span>
                     <span className="text-sm">{selectedStandard.lastUpdated}</span>
@@ -307,6 +250,36 @@ export function StandardsBrowser() {
                       {selectedStandard.status}
                     </Badge>
                   </div>
+                  
+                  {/* Tags */}
+                  {selectedStandard.tags && selectedStandard.tags.length > 0 && (
+                    <div>
+                      <span className="text-sm font-medium mb-2 block">Tags</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedStandard.tags.map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Industry */}
+                  {selectedStandard.industry && selectedStandard.industry.length > 0 && (
+                    <div>
+                      <span className="text-sm font-medium mb-2 block">Industry</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedStandard.industry.map((ind, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            <Building className="h-3 w-3 mr-1" />
+                            {ind}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -322,11 +295,24 @@ export function StandardsBrowser() {
                 {selectedStandard.sections_detail ? (
                   <div className="space-y-6">
                     {selectedStandard.sections_detail.map((section) => (
-                      <Card key={section.id} className="border-l-4 border-l-primary">
+                      <Card 
+                        key={section.id} 
+                        id={section.id}
+                        className="border-l-4 border-l-primary"
+                      >
                         <CardHeader>
                           <div className="flex items-center justify-between">
                             <div>
                               <CardTitle className="text-lg">§{section.number} - {section.title}</CardTitle>
+                              {section.keyTerms && section.keyTerms.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {section.keyTerms.map((term, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs">
+                                      {term}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <Badge variant="outline">{section.number}</Badge>
                           </div>
@@ -365,6 +351,9 @@ export function StandardsBrowser() {
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Section details not available</h3>
                     <p className="text-muted-foreground">Detailed section information is not available for this standard yet.</p>
+                    <Button variant="outline" className="mt-4" onClick={() => window.open(selectedStandard.officialUrl, '_blank')}>
+                      View Official Documentation
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -429,24 +418,123 @@ export function StandardsBrowser() {
       <Card>
         <CardHeader>
           <CardTitle>Regulatory Standards Library</CardTitle>
-          <CardDescription>Search and explore regulatory standards across regions and industries</CardDescription>
+          <CardDescription>
+            Search and explore {regulatoryStandards.length} regulatory standards across regions and industries
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search standards, regulations, or requirements..."
+                placeholder="Search standards, regulations, requirements, or key terms..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setContentSearchOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Command className="h-4 w-4" />
+              Deep Search
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {(selectedCategory !== 'all' || selectedRegion !== 'all' || selectedTags.length > 0) && (
+                <Badge variant="secondary" className="ml-1">
+                  {[
+                    selectedCategory !== 'all' ? 1 : 0,
+                    selectedRegion !== 'all' ? 1 : 0,
+                    selectedTags.length
+                  ].reduce((a, b) => a + b, 0)}
+                </Badge>
+              )}
+            </Button>
           </div>
 
-          {/* Category Filters */}
+          {/* Search Help */}
+          <div className="text-xs text-muted-foreground">
+            💡 Use "Deep Search" for content within standards, or press <kbd className="bg-muted px-1 rounded">Ctrl+K</kbd> for quick access
+          </div>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Category Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name} ({category.count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Region Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Region</label>
+                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {regions.map(region => (
+                        <SelectItem key={region.id} value={region.id}>
+                          {region.name} ({region.count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="space-y-2 flex items-end">
+                  <Button variant="outline" onClick={clearFilters} className="w-full">
+                    Clear All Filters
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tags Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map(tag => (
+                    <Button
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleTag(tag)}
+                      className="h-7 text-xs"
+                    >
+                      <Tag className="h-3 w-3 mr-1" />
+                      {tag}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Category Filters */}
           <div className="flex flex-wrap gap-2">
-            {categories.map(category => (
+            {categories.slice(0, 6).map(category => (
               <Button
                 key={category.id}
                 variant={selectedCategory === category.id ? "default" : "outline"}
@@ -461,6 +549,20 @@ export function StandardsBrowser() {
               </Button>
             ))}
           </div>
+
+          {/* Search Results Summary */}
+          {(searchQuery || selectedCategory !== 'all' || selectedRegion !== 'all' || selectedTags.length > 0) && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Showing {filteredStandards.length} of {regulatoryStandards.length} standards
+              </span>
+              {filteredStandards.length !== regulatoryStandards.length && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  Clear search
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -486,13 +588,40 @@ export function StandardsBrowser() {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">{standard.description}</p>
               
+              {/* Tags */}
+              {standard.tags && standard.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {standard.tags.slice(0, 4).map((tag, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {standard.tags.length > 4 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{standard.tags.length - 4} more
+                    </Badge>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
                     <FileText className="h-3 w-3" />
                     {standard.sections} sections
                   </span>
-                  <span>Updated {standard.lastUpdated}</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Updated {standard.lastUpdated}
+                  </span>
+                  {standard.complianceLevel && (
+                    <Badge 
+                      variant={standard.complianceLevel === 'Mandatory' ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {standard.complianceLevel}
+                    </Badge>
+                  )}
                 </div>
                 <Badge variant={standard.status === 'Active' ? 'default' : 'secondary'}>
                   {standard.status}
@@ -525,10 +654,20 @@ export function StandardsBrowser() {
           <CardContent className="py-12 text-center">
             <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No standards found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+            <p className="text-muted-foreground mb-4">Try adjusting your search or filter criteria</p>
+            <Button variant="outline" onClick={() => setContentSearchOpen(true)}>
+              Try Deep Search instead
+            </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Content Search Modal */}
+      <ContentSearch 
+        isOpen={isContentSearchOpen}
+        onClose={() => setContentSearchOpen(false)}
+        onStandardSelect={viewStandardDetail}
+      />
     </div>
   )
 }

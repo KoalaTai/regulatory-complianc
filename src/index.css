@@ -99,3 +99,28 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.6 0 0);
 }
+
+/* Highlight animation for deep search results */
+.highlight-section {
+  animation: highlight-pulse 3s ease-in-out;
+  border-color: var(--primary) !important;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--primary);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--primary);
+  }
+}
+
+/* Keyboard shortcut styling */
+kbd {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+}
