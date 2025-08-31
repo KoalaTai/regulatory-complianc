@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { AuthModal } from '@/components/AuthModal'
 import { UserProfile, WelcomeCard } from '@/components/UserProfile'
 import { UserSettingsModal } from '@/components/UserSettingsModal'
+import { PersonalizedDashboard } from '@/components/PersonalizedDashboard'
 
 const MainApp = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -125,97 +126,105 @@ const MainApp = () => {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Welcome Card for authenticated users */}
-            {user && userProfile && (
-              <WelcomeCard />
-            )}
-            
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((stat, index) => (
-                <Card key={index} className="border-l-4" style={{ borderLeftColor: `var(--color-${stat.color.split('-')[1]})` }}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                        <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                      </div>
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.color}`}>
-                        <stat.icon className="h-6 w-6 text-white" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Quick Actions */}
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                    <CardDescription>Get started with common regulatory tasks</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {quickActions.map((action, index) => (
-                        <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={action.action}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                                <action.icon className="h-5 w-5 text-foreground" />
-                              </div>
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium text-sm">{action.title}</h3>
-                                  <Badge variant="secondary" className="text-xs">{action.badge}</Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground">{action.description}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Your latest compliance work</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[280px]">
-                    <div className="space-y-4">
-                      {recentActivity.map((activity, index) => (
-                        <div key={index}>
-                          <div className="flex items-start gap-3">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${
-                              activity.type === 'search' ? 'bg-primary' :
-                              activity.type === 'chat' ? 'bg-secondary' :
-                              activity.type === 'audit' ? 'bg-accent' : 'bg-destructive'
-                            }`}>
-                              {activity.type === 'search' ? <Search className="h-4 w-4" /> :
-                               activity.type === 'chat' ? <MessageCircle className="h-4 w-4" /> :
-                               activity.type === 'audit' ? <Shield className="h-4 w-4" /> : <FileCheck className="h-4 w-4" />}
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <p className="text-sm font-medium">{activity.text}</p>
-                              <p className="text-xs text-muted-foreground">{activity.time}</p>
-                            </div>
+            {user ? (
+              // Authenticated users get the personalized dashboard
+              <PersonalizedDashboard />
+            ) : (
+              // Non-authenticated users get the general overview
+              <>
+                {/* Welcome Card for authenticated users */}
+                {user && userProfile && (
+                  <WelcomeCard />
+                )}
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {stats.map((stat, index) => (
+                    <Card key={index} className="border-l-4" style={{ borderLeftColor: `var(--color-${stat.color.split('-')[1]})` }}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                            <p className="text-2xl font-bold text-foreground">{stat.value}</p>
                           </div>
-                          {index < recentActivity.length - 1 && <Separator className="my-4" />}
+                          <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.color}`}>
+                            <stat.icon className="h-6 w-6 text-white" />
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Quick Actions */}
+                  <div className="lg:col-span-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Quick Actions</CardTitle>
+                        <CardDescription>Get started with common regulatory tasks</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {quickActions.map((action, index) => (
+                            <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={action.action}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                                    <action.icon className="h-5 w-5 text-foreground" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-medium text-sm">{action.title}</h3>
+                                      <Badge variant="secondary" className="text-xs">{action.badge}</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Your latest compliance work</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[280px]">
+                        <div className="space-y-4">
+                          {recentActivity.map((activity, index) => (
+                            <div key={index}>
+                              <div className="flex items-start gap-3">
+                                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white ${
+                                  activity.type === 'search' ? 'bg-primary' :
+                                  activity.type === 'chat' ? 'bg-secondary' :
+                                  activity.type === 'audit' ? 'bg-accent' : 'bg-destructive'
+                                }`}>
+                                  {activity.type === 'search' ? <Search className="h-4 w-4" /> :
+                                   activity.type === 'chat' ? <MessageCircle className="h-4 w-4" /> :
+                                   activity.type === 'audit' ? <Shield className="h-4 w-4" /> : <FileCheck className="h-4 w-4" />}
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <p className="text-sm font-medium">{activity.text}</p>
+                                  <p className="text-xs text-muted-foreground">{activity.time}</p>
+                                </div>
+                              </div>
+                              {index < recentActivity.length - 1 && <Separator className="my-4" />}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* Standards Browser Tab */}

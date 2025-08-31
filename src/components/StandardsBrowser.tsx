@@ -10,15 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, BookOpen, Globe, Users, FileText, ExternalLink, Download, Star, Filter, Tag, Calendar, Building, Command } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
 import { 
-  regulatoryStandards, 
+  comprehensiveStandardsDatabase, 
   searchStandards, 
-  getCategories, 
-  getRegions, 
-  getAllTags, 
+  getStandardsByCategory,
+  getStandardsByRegion,
   getRelatedStandards,
   type RegulatoryStandard,
   type StandardSection
-} from '@/data/regulatoryStandards'
+} from '@/data/standardsDatabase'
 import { ContentSearch, useContentSearch } from '@/components/ContentSearch'
 
 export function StandardsBrowser() {
@@ -35,19 +34,48 @@ export function StandardsBrowser() {
   const { isOpen: isContentSearchOpen, setIsOpen: setContentSearchOpen } = useContentSearch()
 
   // Get data using utility functions
-  const categories = useMemo(() => getCategories(), [])
-  const regions = useMemo(() => getRegions(), [])
-  const allTags = useMemo(() => getAllTags(), [])
+  const categories = useMemo(() => {
+    const cats = new Set(comprehensiveStandardsDatabase.map(std => std.category))
+    return Array.from(cats)
+  }, [])
+  
+  const regions = useMemo(() => {
+    const regs = new Set(comprehensiveStandardsDatabase.map(std => std.region))
+    return Array.from(regs)
+  }, [])
+  
+  const allTags = useMemo(() => {
+    const tags = new Set(comprehensiveStandardsDatabase.flatMap(std => std.tags))
+    return Array.from(tags)
+  }, [])
 
   // Filter standards based on search and filters
   const filteredStandards = useMemo(() => {
-    return searchStandards(
-      regulatoryStandards,
-      searchQuery,
-      selectedCategory,
-      selectedRegion,
-      selectedTags
-    )
+    let filtered = comprehensiveStandardsDatabase
+
+    // Apply search
+    if (searchQuery.trim()) {
+      filtered = searchStandards(searchQuery)
+    }
+
+    // Apply category filter
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(std => std.category === selectedCategory)
+    }
+
+    // Apply region filter
+    if (selectedRegion !== 'all') {
+      filtered = filtered.filter(std => std.region === selectedRegion)
+    }
+
+    // Apply tag filters
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(std => 
+        selectedTags.some(tag => std.tags.includes(tag))
+      )
+    }
+
+    return filtered
   }, [searchQuery, selectedCategory, selectedRegion, selectedTags])
 
   // Get related standards for current standard
@@ -232,7 +260,7 @@ export function StandardsBrowser() {
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Sections</span>
-                    <span className="text-sm">{selectedStandard.sections}</span>
+                    <span className="text-sm">{selectedStandard.sections.length}</span>
                   </div>
                   {selectedStandard.effectiveDate && (
                     <div className="flex items-center justify-between">
@@ -245,9 +273,9 @@ export function StandardsBrowser() {
                     <span className="text-sm">{selectedStandard.lastUpdated}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Status</span>
-                    <Badge variant={selectedStandard.status === 'Active' ? 'default' : 'secondary'}>
-                      {selectedStandard.status}
+                    <span className="text-sm font-medium">Risk Level</span>
+                    <Badge variant={selectedStandard.riskLevel === 'high' ? 'destructive' : selectedStandard.riskLevel === 'medium' ? 'default' : 'secondary'}>
+                      {selectedStandard.riskLevel}
                     </Badge>
                   </div>
                   
@@ -267,11 +295,11 @@ export function StandardsBrowser() {
                   )}
 
                   {/* Industry */}
-                  {selectedStandard.industry && selectedStandard.industry.length > 0 && (
+                  {selectedStandard.industryFocus && selectedStandard.industryFocus.length > 0 && (
                     <div>
-                      <span className="text-sm font-medium mb-2 block">Industry</span>
+                      <span className="text-sm font-medium mb-2 block">Industry Focus</span>
                       <div className="flex flex-wrap gap-1">
-                        {selectedStandard.industry.map((ind, index) => (
+                        {selectedStandard.industryFocus.map((ind, index) => (
                           <Badge key={index} variant="secondary" className="text-xs">
                             <Building className="h-3 w-3 mr-1" />
                             {ind}
@@ -292,9 +320,9 @@ export function StandardsBrowser() {
                 <CardDescription>Detailed breakdown of regulatory requirements</CardDescription>
               </CardHeader>
               <CardContent>
-                {selectedStandard.sections_detail ? (
+                {selectedStandard.sections && selectedStandard.sections.length > 0 ? (
                   <div className="space-y-6">
-                    {selectedStandard.sections_detail.map((section) => (
+                    {selectedStandard.sections.map((section) => (
                       <Card 
                         key={section.id} 
                         id={section.id}
@@ -303,22 +331,21 @@ export function StandardsBrowser() {
                         <CardHeader>
                           <div className="flex items-center justify-between">
                             <div>
-                              <CardTitle className="text-lg">§{section.number} - {section.title}</CardTitle>
-                              {section.keyTerms && section.keyTerms.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {section.keyTerms.map((term, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs">
-                                      {term}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
+                              <CardTitle className="text-lg">§{section.id} - {section.title}</CardTitle>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {section.complianceLevel}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  ~{section.estimatedHours}h
+                                </Badge>
+                              </div>
                             </div>
-                            <Badge variant="outline">{section.number}</Badge>
+                            <Badge variant="outline">{section.id}</Badge>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <p className="text-sm leading-relaxed">{section.content}</p>
+                          <p className="text-sm leading-relaxed">{section.description}</p>
                           
                           <div>
                             <h4 className="font-medium text-sm mb-2">Key Requirements:</h4>
@@ -331,12 +358,48 @@ export function StandardsBrowser() {
                               ))}
                             </ul>
                           </div>
+
+                          <div>
+                            <h4 className="font-medium text-sm mb-2">Key Points:</h4>
+                            <ul className="space-y-1">
+                              {section.keyPoints.map((point, index) => (
+                                <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-secondary mt-2 flex-shrink-0" />
+                                  {point}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-sm mb-2">Common Pitfalls:</h4>
+                            <ul className="space-y-1">
+                              {section.commonPitfalls.map((pitfall, index) => (
+                                <li key={index} className="text-sm text-destructive flex items-start gap-2">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-destructive mt-2 flex-shrink-0" />
+                                  {pitfall}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-sm mb-2">Audit Focus Areas:</h4>
+                            <ul className="space-y-1">
+                              {section.auditFocus.map((focus, index) => (
+                                <li key={index} className="text-sm text-accent flex items-start gap-2">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-accent mt-2 flex-shrink-0" />
+                                  {focus}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                           
-                          {section.related && (
+                          {section.relatedSections && section.relatedSections.length > 0 && (
                             <div>
                               <h4 className="font-medium text-sm mb-2">Related Sections:</h4>
                               <div className="flex flex-wrap gap-2">
-                                {section.related.map((rel, index) => (
+                                {section.relatedSections.map((rel, index) => (
                                   <Badge key={index} variant="secondary">§{rel}</Badge>
                                 ))}
                               </div>
@@ -351,9 +414,6 @@ export function StandardsBrowser() {
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Section details not available</h3>
                     <p className="text-muted-foreground">Detailed section information is not available for this standard yet.</p>
-                    <Button variant="outline" className="mt-4" onClick={() => window.open(selectedStandard.officialUrl, '_blank')}>
-                      View Official Documentation
-                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -361,28 +421,76 @@ export function StandardsBrowser() {
           </TabsContent>
 
           <TabsContent value="requirements">
-            <Card>
-              <CardHeader>
-                <CardTitle>Key Points & Requirements</CardTitle>
-                <CardDescription>Essential aspects of this standard</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {selectedStandard.keyPoints ? (
-                  <div className="space-y-4">
-                    {selectedStandard.keyPoints.map((point, index) => (
-                      <div key={index} className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                        <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
-                          {index + 1}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Key Benefits</CardTitle>
+                  <CardDescription>Benefits of implementing this standard</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedStandard.keyBenefits && selectedStandard.keyBenefits.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedStandard.keyBenefits.map((benefit, index) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-secondary/10 rounded-lg">
+                          <div className="flex-shrink-0 h-6 w-6 rounded-full bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center">
+                            {index + 1}
+                          </div>
+                          <p className="text-sm leading-relaxed">{benefit}</p>
                         </div>
-                        <p className="text-sm leading-relaxed">{point}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No key points available for this standard.</p>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No key benefits listed for this standard.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Implementation Tips</CardTitle>
+                  <CardDescription>Practical guidance for implementation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedStandard.implementationTips && selectedStandard.implementationTips.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedStandard.implementationTips.map((tip, index) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-accent/10 rounded-lg">
+                          <div className="flex-shrink-0 h-6 w-6 rounded-full bg-accent text-accent-foreground text-sm font-medium flex items-center justify-center">
+                            {index + 1}
+                          </div>
+                          <p className="text-sm leading-relaxed">{tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No implementation tips available for this standard.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Common Challenges</CardTitle>
+                  <CardDescription>Potential obstacles and how to address them</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedStandard.commonChallenges && selectedStandard.commonChallenges.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedStandard.commonChallenges.map((challenge, index) => (
+                        <div key={index} className="flex items-start gap-3 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                          <div className="flex-shrink-0 h-6 w-6 rounded-full bg-destructive text-destructive-foreground text-sm font-medium flex items-center justify-center">
+                            !
+                          </div>
+                          <p className="text-sm leading-relaxed">{challenge}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No common challenges listed for this standard.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="applicability">
@@ -419,7 +527,7 @@ export function StandardsBrowser() {
         <CardHeader>
           <CardTitle>Regulatory Standards Library</CardTitle>
           <CardDescription>
-            Search and explore {regulatoryStandards.length} regulatory standards across regions and industries
+            Search and explore {comprehensiveStandardsDatabase.length} comprehensive regulatory standards across regions and industries
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

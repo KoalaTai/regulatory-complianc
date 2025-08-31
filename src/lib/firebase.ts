@@ -115,12 +115,24 @@ export const createUserDocument = async (user: any) => {
         preferences: {
           primaryStandards: [],
           notificationsEnabled: true,
-          theme: 'professional'
+          theme: 'professional',
+          dashboardLayout: 'detailed',
+          reminderFrequency: 'weekly'
         },
         stats: {
           auditSimulationsCompleted: 0,
           citationsManaged: 0,
-          aiConversations: 0
+          aiConversations: 0,
+          standardsTracked: 0,
+          goalsCompleted: 0,
+          totalSectionsCompleted: 0
+        },
+        complianceProfile: {
+          industry: '',
+          companySize: '',
+          primaryRegions: [],
+          certificationGoals: [],
+          riskTolerance: 'medium'
         }
       })
     }

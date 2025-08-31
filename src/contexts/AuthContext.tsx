@@ -19,11 +19,23 @@ interface UserProfile {
     primaryStandards: string[]
     notificationsEnabled: boolean
     theme: string
+    dashboardLayout?: 'compact' | 'detailed'
+    reminderFrequency?: 'daily' | 'weekly' | 'monthly'
   }
   stats: {
     auditSimulationsCompleted: number
     citationsManaged: number
     aiConversations: number
+    standardsTracked: number
+    goalsCompleted: number
+    totalSectionsCompleted: number
+  }
+  complianceProfile?: {
+    industry: string
+    companySize: string
+    primaryRegions: string[]
+    certificationGoals: string[]
+    riskTolerance: 'low' | 'medium' | 'high'
   }
 }
 
@@ -73,12 +85,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               preferences: {
                 primaryStandards: [],
                 notificationsEnabled: true,
-                theme: 'professional'
+                theme: 'professional',
+                dashboardLayout: 'detailed',
+                reminderFrequency: 'weekly'
               },
               stats: {
                 auditSimulationsCompleted: 0,
                 citationsManaged: 0,
-                aiConversations: 0
+                aiConversations: 0,
+                standardsTracked: 0,
+                goalsCompleted: 0,
+                totalSectionsCompleted: 0
+              },
+              complianceProfile: {
+                industry: '',
+                companySize: '',
+                primaryRegions: [],
+                certificationGoals: [],
+                riskTolerance: 'medium'
               }
             }
             setUserProfile(defaultProfile)
@@ -93,12 +117,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             preferences: {
               primaryStandards: [],
               notificationsEnabled: true,
-              theme: 'professional'
+              theme: 'professional',
+              dashboardLayout: 'detailed',
+              reminderFrequency: 'weekly'
             },
             stats: {
               auditSimulationsCompleted: localAuditSimulations.length,
               citationsManaged: localCitations.length,
-              aiConversations: localChatHistory.length
+              aiConversations: localChatHistory.length,
+              standardsTracked: 0,
+              goalsCompleted: 0,
+              totalSectionsCompleted: 0
+            },
+            complianceProfile: {
+              industry: '',
+              companySize: '',
+              primaryRegions: [],
+              certificationGoals: [],
+              riskTolerance: 'medium'
             }
           }
           setUserProfile(defaultProfile)
