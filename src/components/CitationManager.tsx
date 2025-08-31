@@ -74,7 +74,7 @@ export function CitationManager() {
     setEditingCitation(null)
   }
 
-  const handleSubmit = () => {
+  const handleCitationSubmit = () => {
     if (!formData.title || !formData.standard || !formData.content) return
 
     const citation: Citation = {
@@ -312,7 +312,7 @@ export function CitationManager() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button onClick={handleSubmit}>
+                  <Button onClick={handleCitationSubmit}>
                     {editingCitation ? 'Update Citation' : 'Add Citation'}
                   </Button>
                   <Button variant="outline" onClick={resetForm}>
