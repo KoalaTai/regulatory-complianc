@@ -442,37 +442,4 @@ export function CitationManager() {
       </div>
     </div>
   )
-
-  function getCategoryColor(category: string) {
-    switch (category) {
-      case 'requirement': return 'bg-primary'
-      case 'guidance': return 'bg-secondary'
-      case 'definition': return 'bg-accent'
-      case 'procedure': return 'bg-destructive'
-      default: return 'bg-muted'
-    }
-  }
-
-  function copyCitation(citation: Citation) {
-    const formatted = `${citation.title} (${citation.standard} ${citation.section})\n${citation.content}`
-    navigator.clipboard.writeText(formatted)
-  }
-
-  function startEdit(citation: Citation) {
-    setFormData({
-      title: citation.title,
-      standard: citation.standard,
-      section: citation.section,
-      content: citation.content,
-      tags: citation.tags.join(', '),
-      url: citation.url || '',
-      category: citation.category
-    })
-    setEditingCitation(citation)
-    setShowAddForm(true)
-  }
-
-  function deleteCitation(id: string) {
-    setCitations(prev => prev.filter(c => c.id !== id))
-  }
 }
