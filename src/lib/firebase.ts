@@ -1,12 +1,8 @@
 // Firebase configuration with demo mode support
-// Firebase imports are conditionally loaded to avoid errors in demo environments
+import { initializeApp } from 'firebase/app'
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'firebase/auth'
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { demoAuth, demoFirestore, isDemoMode } from './demoAuth'
-
-// Firebase types for TypeScript compatibility
-type FirebaseApp = any
-type Auth = any
-type Firestore = any
-type GoogleAuthProvider = any
 
 const firebaseConfig = {
   // Demo configuration - replace with your Firebase project config
@@ -19,21 +15,16 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase (only in production with available dependencies)
-let app: FirebaseApp = null
-let auth: Auth = null
-let db: Firestore = null
-let googleProvider: GoogleAuthProvider = null
+let app: any = null
+let auth: any = null
+let db: any = null
+let googleProvider: GoogleAuthProvider | null = null
 
-// Dynamically import Firebase only if available and not in demo mode
-const initializeFirebase = async () => {
+// Initialize Firebase
+const initializeFirebase = () => {
   if (isDemoMode()) return false
   
   try {
-    // Try to dynamically import Firebase modules
-    const { initializeApp } = await import('firebase/app')
-    const { getAuth, GoogleAuthProvider } = await import('firebase/auth')
-    const { getFirestore } = await import('firebase/firestore')
-    
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
     db = getFirestore(app)
@@ -50,12 +41,11 @@ initializeFirebase()
 
 // Auth functions with demo mode fallback
 export const signInWithGoogle = async () => {
-  if (isDemoMode() || !auth) {
+  if (isDemoMode() || !auth || !googleProvider) {
     return demoAuth.signInWithGoogle()
   }
   
   try {
-    const { signInWithPopup } = await import('firebase/auth')
     const result = await signInWithPopup(auth, googleProvider)
     return { success: true, user: result.user }
   } catch (error: any) {
@@ -70,7 +60,6 @@ export const signInWithEmail = async (email: string, password: string) => {
   }
   
   try {
-    const { signInWithEmailAndPassword } = await import('firebase/auth')
     const result = await signInWithEmailAndPassword(auth, email, password)
     return { success: true, user: result.user }
   } catch (error: any) {
@@ -85,7 +74,6 @@ export const registerWithEmail = async (email: string, password: string, display
   }
   
   try {
-    const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth')
     const result = await createUserWithEmailAndPassword(auth, email, password)
     await updateProfile(result.user, { displayName })
     
@@ -105,7 +93,6 @@ export const logout = async () => {
   }
   
   try {
-    const { signOut } = await import('firebase/auth')
     await signOut(auth)
     return { success: true }
   } catch (error: any) {
@@ -121,7 +108,6 @@ export const createUserDocument = async (user: any) => {
   }
   
   try {
-    const { doc, getDoc, setDoc } = await import('firebase/firestore')
     const userDoc = doc(db, 'users', user.uid)
     const userSnapshot = await getDoc(userDoc)
     
@@ -169,7 +155,6 @@ export const getUserDocument = async (uid: string) => {
   }
   
   try {
-    const { doc, getDoc } = await import('firebase/firestore')
     const userDoc = doc(db, 'users', uid)
     const userSnapshot = await getDoc(userDoc)
     return userSnapshot.exists() ? userSnapshot.data() : null
@@ -185,7 +170,6 @@ export const updateUserDocument = async (uid: string, data: any) => {
   }
   
   try {
-    const { doc, updateDoc } = await import('firebase/firestore')
     const userDoc = doc(db, 'users', uid)
     await updateDoc(userDoc, data)
     return { success: true }
@@ -202,20 +186,10 @@ export const onAuthStateChange = (callback: (user: any) => void) => {
   }
   
   try {
-    // Dynamically import Firebase auth observer
-    import('firebase/auth').then(({ onAuthStateChanged }) => {
-      return onAuthStateChanged(auth, callback)
-    }).catch(error => {
-      console.error('Firebase auth state observer error:', error)
-      // Fallback to demo mode
-      return demoAuth.onAuthStateChanged(callback)
-    })
-    
-    // Return demo mode observer as fallback
-    return demoAuth.onAuthStateChanged(callback)
+    return onAuthStateChanged(auth, callback)
   } catch (error) {
     console.error('Firebase auth state observer error:', error)
-    // Return demo mode observer
+    // Return demo mode observer as fallback
     return demoAuth.onAuthStateChanged(callback)
   }
 }
