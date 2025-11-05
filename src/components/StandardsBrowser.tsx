@@ -36,12 +36,26 @@ export function StandardsBrowser() {
   // Get data using utility functions
   const categories = useMemo(() => {
     const cats = new Set(comprehensiveStandardsDatabase.map(std => std.category))
-    return Array.from(cats)
+    return [
+      { id: 'all', name: 'All Categories', count: comprehensiveStandardsDatabase.length },
+      ...Array.from(cats).map(cat => ({
+        id: cat,
+        name: cat,
+        count: comprehensiveStandardsDatabase.filter(std => std.category === cat).length
+      }))
+    ]
   }, [])
   
   const regions = useMemo(() => {
     const regs = new Set(comprehensiveStandardsDatabase.map(std => std.region))
-    return Array.from(regs)
+    return [
+      { id: 'all', name: 'All Regions', count: comprehensiveStandardsDatabase.length },
+      ...Array.from(regs).map(reg => ({
+        id: reg,
+        name: reg,
+        count: comprehensiveStandardsDatabase.filter(std => std.region === reg).length
+      }))
+    ]
   }, [])
   
   const allTags = useMemo(() => {
@@ -662,9 +676,9 @@ export function StandardsBrowser() {
           {(searchQuery || selectedCategory !== 'all' || selectedRegion !== 'all' || selectedTags.length > 0) && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Showing {filteredStandards.length} of {regulatoryStandards.length} standards
+                Showing {filteredStandards.length} of {comprehensiveStandardsDatabase.length} standards
               </span>
-              {filteredStandards.length !== regulatoryStandards.length && (
+              {filteredStandards.length !== comprehensiveStandardsDatabase.length && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Clear search
                 </Button>
@@ -716,23 +730,15 @@ export function StandardsBrowser() {
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
                     <FileText className="h-3 w-3" />
-                    {standard.sections} sections
+                    {standard.sections.length} sections
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     Updated {standard.lastUpdated}
                   </span>
-                  {standard.complianceLevel && (
-                    <Badge 
-                      variant={standard.complianceLevel === 'Mandatory' ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {standard.complianceLevel}
-                    </Badge>
-                  )}
                 </div>
-                <Badge variant={standard.status === 'Active' ? 'default' : 'secondary'}>
-                  {standard.status}
+                <Badge variant="default">
+                  Active
                 </Badge>
               </div>
 
