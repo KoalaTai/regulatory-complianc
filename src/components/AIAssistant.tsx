@@ -228,7 +228,7 @@ export function AIAssistant() {
                         </div>
                         
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{message.timestamp.toLocaleTimeString()}</span>
+                          <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                           {message.type === 'assistant' && (
                             <>
                               <Separator orientation="vertical" className="h-3" />
